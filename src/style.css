@@ -95,3 +95,4 @@ footer a{color:#fff}
 .gt input{width:2.4em;padding:6px 4px;text-align:center;font:600 16px "Fira Sans",sans-serif;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
 .gt .p3{color:var(--h)}.gt .p1{color:#b88a00}.gt .p0{color:#c8402f}
 .hid{color:var(--mute)}
+[hidden]{display:none!important}
