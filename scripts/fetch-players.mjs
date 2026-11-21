@@ -4,7 +4,17 @@ import fs from 'node:fs/promises';
 import { WIKI } from '../src/teams.mjs';
 
 const UA = { 'User-Agent': 'superleague-gr stats site (github.com/kotetsi/superleague-gr)' };
-const getJ = async u => { for (let i = 0; i < 3; i++) { const r = await fetch(u, { headers: UA }); if (r.ok) return r.json(); await new Promise(z => setTimeout(z, 2000)); } throw new Error('HTTP ' + u); };
+const sleep = ms => new Promise(z => setTimeout(z, ms));
+const getJ = async u => {
+  for (let i = 0; i < 6; i++) {
+    await sleep(1200);
+    const r = await fetch(u, { headers: UA });
+    if (r.ok) return r.json();
+    console.log(`  HTTP ${r.status}, ξαναδοκιμάζω`);
+    await sleep(1000 * (+r.headers.get('retry-after') || 5 * (i + 1)));
+  }
+  throw new Error('HTTP ' + u.slice(0, 120));
+};
 const WP = 'https://en.wikipedia.org/w/api.php?format=json&formatversion=2&';
 const chunk = (a, n) => a.reduce((o, x, i) => (i % n ? o[o.length - 1].push(x) : o.push([x]), o), []);
 
@@ -20,16 +30,19 @@ function parseSquad(w) {
   const end = rest.search(/\n==[^=]|\n===\s*(Out on loan|Players out on loan|Reserve|Youth|B team|Under)/i);
   const sec = end < 0 ? rest : rest.slice(0, end);
   const out = [];
-  for (const line of sec.split('\n')) {
-    const m = line.match(/\{\{\s*[Ff]s player\s*\|(.*)\}\}\s*$/);
-    if (!m) continue;
-    const body = m[1].replace(/\{\{[^{}]*\}\}/g, '');
+  const re = /\{\{\s*(?:[Ff]s player|[Ff]ootball squad player)\s*\|/g;
+  let m;
+  while ((m = re.exec(sec))) {
+    let d = 0, i = m.index;
+    for (; i < sec.length; i++) { if (sec.startsWith('{{', i)) { d++; i++; } else if (sec.startsWith('}}', i)) { d--; i++; if (!d) break; } }
+    const raw = sec.slice(m.index + m[0].length, i - 1);
+    let body = raw; for (let k = 0; k < 3; k++) body = body.replace(/\{\{[^{}]*\}\}/g, '');
     const o = {};
     for (const kv of body.split('|').reduce((acc, p) => { if (/^\s*\w+\s*=/.test(p) || !acc.length) acc.push(p); else acc[acc.length - 1] += '|' + p; return acc; }, [])) {
-      const i = kv.indexOf('='); if (i > 0) o[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
+      const j = kv.indexOf('='); if (j > 0) o[kv.slice(0, j).trim()] = kv.slice(j + 1).trim();
     }
     const link = (o.name || '').match(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/);
-    out.push({ no: o.no || '', pos: (o.pos || '').toUpperCase(), nat: (o.nat || '').toUpperCase(), name: link ? (link[2] || link[1]).trim() : (o.name || '').replace(/[[\]]/g, '').trim(), wiki: link ? link[1].trim() : null, loan: /loan/i.test(line) });
+    out.push({ no: o.no || '', pos: (o.pos || '').toUpperCase(), nat: (o.nat || '').toUpperCase(), name: link ? (link[2] || link[1]).trim() : (o.name || '').replace(/[[\]]/g, '').trim(), wiki: link ? link[1].trim() : null, loan: /on loan from/i.test(raw) });
   }
   return out;
 }
