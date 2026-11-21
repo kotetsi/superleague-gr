@@ -123,7 +123,7 @@ function page(p, { title, desc, body, ld = [], crumbs = [] }) {
 ${[...bc, ...ld].map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join('\n')}
 </head><body>
 <header class="top"><div class="wrap"><a class="brand" href="${U('')}">Στατιστικά <b>Super League</b></a>
-<nav aria-label="Κύριο μενού"><a href="${U('')}">Αγωνιστική</a><a href="${U('vathmologia/')}">Βαθμολογία</a><a href="${U('programma/')}">Πρόγραμμα</a><a href="${U('apotelesmata/')}">Αποτελέσματα</a><a href="${U('omades/')}">Ομάδες</a><a href="${U('statistika/')}">Στατιστικά</a><a href="${U('paixnidi/')}">Παιχνίδι</a></nav></div></header>
+<nav aria-label="Κύριο μενού"><a href="${U('')}">Αγωνιστική</a><a href="${U('vathmologia/')}">Βαθμολογία</a><a href="${U('programma/')}">Πρόγραμμα</a><a href="${U('apotelesmata/')}">Αποτελέσματα</a><a href="${U('omades/')}">Ομάδες</a><a href="${U('statistika/')}">Στατιστικά</a><a href="${U('paixnidi/')}">Παιχνίδι</a><a href="${U('kouiz/')}">Κουίζ</a></nav></div></header>
 <main>${crumbs.length ? body.replace('<!--crumbs-->', `<div class="crumbs"><a href="${U('')}">Αρχική</a>${crumbs.map(([n, u], i) => i === crumbs.length - 1 ? ` › ${esc(n)}` : ` › <a href="${U(u)}">${esc(n)}</a>`).join('')}</div>`) : body}</main>
 <footer class="band"><div class="wrap"><p>${NAME} · Super League ${seasonLabel(cur)} · ενημέρωση ${dLong(TODAY)}.</p>
 <p>Δεδομένα: football-data.co.uk. Τα ποσοστά 1-Χ-2 και over/under είναι οι μέσες αποδόσεις της αγοράς χωρίς γκανιότα· τα αναμενόμενα γκολ και τα πιθανότερα σκορ βγαίνουν από μοντέλο γκολ (Dixon-Coles). Δεν αποτελούν συμβουλή στοιχήματος. 21+ · Παίξε υπεύθυνα.</p></div></footer>
@@ -345,8 +345,61 @@ page('paixnidi/', {
   crumbs: [['Νίκησε το μοντέλο', 'paixnidi/']],
   body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Νίκησε το μοντέλο</h1><p class="sub">Βάλε σκορ σε κάθε αγώνα της αγωνιστικής πριν τη σέντρα. Ακριβές σκορ: 3 πόντοι · σωστό 1-Χ-2: 1 πόντος. Το ίδιο παίρνει και το μοντέλο μας.</p><div class="figs" id="score"></div><p><button id="share" class="btn" hidden>Μοιράσου το σκορ σου</button></p></div></section>
 <section class="band"><div class="wrap"><p class="note" id="saved" aria-live="polite">Οι προβλέψεις σου αποθηκεύονται μόνο σε αυτή τη συσκευή.</p><div id="game"><p>Φόρτωση…</p></div>
+<p><a href="${U('kouiz/')}">Παίξε και το καθημερινό κουίζ «Ποια ομάδα είναι;» →</a></p>
 <p class="note">Η πρόβλεψη του μοντέλου φαίνεται μόλις ξεκινήσει ο αγώνας, για να μην επηρεάσει τη δική σου. Τα αποτελέσματα ενημερώνονται κάθε Δευτέρα και Πέμπτη. Παιχνίδι για διασκέδαση, χωρίς χρήματα.</p></div></section>
 <script>${gameJs}</script>`,
+});
+
+// ---------- καθημερινό κουίζ «Ποια ομάδα είναι;»
+const rk = (slug, t) => RANK[slug].find(r => r.t === t);
+const ordn = n => n + 'η';
+const QUIZ = TABLE.filter(r => r.p).map(r => {
+  const t = r.t, s = ST[t].cur, R = k => rk(k, t), last = s.games[0];
+  const c = [
+    `Σουτ ανά αγώνα: ${sval(STATS.find(x => x.slug === 'sout'), R('sout')?.v)} (${ordn(R('sout')?.pos)} στη λίγκα).`,
+    `Κόρνερ ανά αγώνα: ${f1(s.corners / s.p)} · κάρτες ανά αγώνα: ${f1(s.cards / s.p)}.`,
+    `Over 2,5 σε ${pc(s.o25 / s.p)} των αγώνων της · γκολ-γκολ σε ${pc(s.btts / s.p)}.`,
+    `Στο ημίχρονο προηγήθηκε σε ${s.htW} αγώνες · ανατροπές: ${s.comeW} · χαμένα προβαδίσματα: ${s.leadLost + s.leadDrew}.`,
+    `Εντός έδρας ${s.home.join('-')}, εκτός ${s.away.join('-')} (νίκες-ισοπαλίες-ήττες).`,
+    `${s.pts} βαθμοί σε ${s.p} αγώνες, γκολ ${s.gf}:${s.ga}.`,
+    `Τελευταίος αγώνας: ${last.home ? 'εντός' : 'εκτός'} έδρας, αντίπαλος ${grName(last.opp)}, σκορ ${last.home ? last.m.hg + '-' + last.m.ag : last.m.ag + '-' + last.m.hg} (πρώτα τα δικά της γκολ).`,
+  ];
+  return { n: grName(t), url: teamUrl(t), c };
+});
+const quizJs = `
+const Q=${JSON.stringify(QUIZ).replace(/</g, '\\u003c')};
+const names=Q.map(q=>q.n).sort((a,b)=>a.localeCompare(b,'el'));
+const day=()=>{const d=new Date(Date.now()+2*36e5);return d.toISOString().slice(0,10)};
+const dnum=Math.floor(new Date(day()+'T00:00:00Z')/864e5);
+let idx=((dnum*5+3)%Q.length+Q.length)%Q.length,practice=false;
+const KEY='slgr-quiz';let S={};try{S=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+let st={shown:1,wrong:[],done:false,win:false};
+if(S.day===day()&&S.st)st=S.st;
+const $=id=>document.getElementById(id);
+function render(){const q=Q[idx];
+ $('clues').innerHTML=q.c.slice(0,st.shown).map((c,i)=>'<li><span>'+(i+1)+'</span>'+c+'</li>').join('');
+ $('opts').innerHTML=st.done?'':names.map(n=>'<button class="opt'+(st.wrong.includes(n)?' no':'')+'"'+(st.wrong.includes(n)?' disabled':'')+'>'+n+'</button>').join('');
+ $('more').hidden=st.done||st.shown>=q.c.length;
+ $('res').innerHTML=st.done?(st.win?'<p class="big">Σωστά! Ήταν '+q.n+' με '+st.shown+(st.shown===1?' ένδειξη':' ενδείξεις')+'.</p>':'<p class="big">Ήταν '+q.n+'.</p>')+'<p><a href="'+q.url+'">Δες τα στατιστικά της →</a></p>':'';
+ $('share').hidden=!st.done||practice;$('again').hidden=!st.done;
+ $('streak').textContent=S.streak?'Σερί: '+S.streak+(S.streak===1?' μέρα':' μέρες'):'';
+}
+function finish(win){st.done=true;st.win=win;if(!practice){const y=new Date(new Date(day()+'T00:00:00Z')-864e5).toISOString().slice(0,10);S.streak=win?(S.last===y?(S.streak||0)+1:1):0;if(win)S.last=day();}}
+document.addEventListener('click',e=>{const b=e.target;if(b.classList.contains('opt')&&!st.done){if(b.textContent===Q[idx].n)finish(true);else{st.wrong.push(b.textContent);if(st.shown<Q[idx].c.length)st.shown++;else finish(false)}if(!practice){S.day=day();S.st=st;save()}render()}});
+$('more').onclick=()=>{st.shown++;if(!practice){S.day=day();S.st=st;save()}render()};
+$('again').onclick=()=>{practice=true;idx=Math.floor(Math.random()*Q.length);st={shown:1,wrong:[],done:false,win:false};render()};
+$('share').onclick=async e=>{const t='Ποια ομάδα είναι; '+day().slice(8)+'/'+day().slice(5,7)+' '+(st.win?'✅ με '+st.shown+'/7 ενδείξεις':'❌')+' '+'🟥'.repeat(st.wrong.length)+(st.win?'🟩':'')+' '+location.href;try{if(navigator.share)await navigator.share({text:t});else{await navigator.clipboard.writeText(t);e.target.textContent='Αντιγράφηκε ✓'}}catch(x){}};
+render();`;
+page('kouiz/', {
+  title: `Ποια ομάδα είναι; Καθημερινό κουίζ Super League | ${NAME}`,
+  desc: 'Καθημερινό κουίζ ποδοσφαίρου: μάντεψε την ομάδα της Super League από τα στατιστικά της, με όσο λιγότερες ενδείξεις μπορείς.',
+  crumbs: [['Κουίζ', 'kouiz/']],
+  body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Ποια ομάδα είναι;</h1><p class="sub">Μια ομάδα της Super League κάθε μέρα. Μάντεψέ την από τα στατιστικά της. Κάθε λάθος απάντηση φέρνει νέα ένδειξη· έχεις 7.</p><p class="note" id="streak"></p></div></section>
+<section class="band"><div class="wrap quiz"><ol id="clues" class="clues"></ol><p><button id="more" class="btn ghost">Δείξε άλλη ένδειξη</button></p><div id="opts" class="opts"></div><div id="res"></div><p><button id="share" class="btn" hidden>Μοιράσου το αποτέλεσμα</button> <button id="again" class="btn ghost" hidden>Εξάσκηση με τυχαία ομάδα</button></p>
+<p class="note">Τα στατιστικά είναι της σεζόν ${seasonLabel(cur)} και ενημερώνονται κάθε Δευτέρα και Πέμπτη. Νέα ομάδα κάθε μέρα στις 00:00.</p>
+<p><a href="${U('paixnidi/')}">Παίξε και το «Νίκησε το μοντέλο» →</a></p></div></section>
+<script>${quizJs}</script>`,
 });
 
 page('statistika/', {
