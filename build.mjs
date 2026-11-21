@@ -2,6 +2,7 @@
 // SITE_URL: πλήρης διεύθυνση (για canonical/sitemap), SITE_BASE: διαδρομή βάσης (π.χ. /superleague-gr/ στο GitHub Pages).
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { grName, slugOf } from './src/teams.mjs';
 import { seasonCode, seasonLabel } from './src/season.mjs';
 import { marketXG, fit, predict, devig } from './src/model.mjs';
@@ -10,6 +11,7 @@ const SITE_URL = (process.env.SITE_URL || 'https://kotetsi.github.io/superleague
 const BASE = process.env.SITE_BASE ?? '/superleague-gr/';
 const OUT = 'dist';
 const NAME = 'Στατιστικά Super League';
+const CSSV = createHash('md5').update(await fs.readFile('src/style.css')).digest('hex').slice(0, 8);
 const TODAY = process.env.BUILD_DATE || new Date().toISOString().slice(0, 10);
 
 // ---------- δεδομένα
@@ -119,7 +121,7 @@ function page(p, { title, desc, body, ld = [], crumbs = [] }) {
 <title>${esc(title)}</title><meta name="description" content="${esc(desc)}"><link rel="canonical" href="${url}">
 <meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${url}"><meta property="og:type" content="website"><meta property="og:locale" content="el_GR">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans+Condensed:wght@600;800&family=Fira+Sans:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="${U('assets/style.css')}">
+<link rel="stylesheet" href="${U('assets/style.css')}?v=${CSSV}">
 ${[...bc, ...ld].map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join('\n')}
 </head><body>
 <header class="top"><div class="wrap"><a class="brand" href="${U('')}">Στατιστικά <b>Super League</b></a>
