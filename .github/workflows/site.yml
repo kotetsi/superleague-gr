@@ -29,6 +29,9 @@ jobs:
       - name: Γεγονότα αγώνων (ESPN)
         run: node scripts/fetch-espn.mjs
         continue-on-error: true
+      - name: Ιστορικό σεζόν
+        run: node scripts/fetch-history.mjs
+        continue-on-error: true
       - name: Τεστ
         run: node --test test/*.test.mjs
       - name: Χτίσιμο
