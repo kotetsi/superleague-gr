@@ -124,3 +124,9 @@ footer a{color:#fff}
 .livebox .lsc{font:800 26px/1.2 "Fira Sans Condensed",sans-serif;margin:6px 0}
 .livebox .tl li{background:rgba(255,255,255,.08)}
 .livebox small{color:#cfe3d7}
+.rnav{display:flex;justify-content:space-between;gap:10px;margin:14px 0 0;font-size:15px}.rnav a{color:var(--card)}
+.results{display:grid;gap:8px}
+.rr{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--panel)}
+.rr .t1{text-align:right}.rr .sc{font:800 20px "Fira Sans Condensed",sans-serif;text-decoration:none;color:inherit;white-space:nowrap}
+.rr .sco{grid-column:1/-1;text-align:center;color:var(--mute);font-size:12px}
+.mv .up{color:var(--h)}.mv .dn{color:#c8402f}.mv{font-size:12px}
