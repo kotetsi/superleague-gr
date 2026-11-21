@@ -4,17 +4,19 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { grName, slugOf, genOf, ESPN_ID } from './src/teams.mjs';
+import { grName, slugOf, genOf, ESPN_ID, SHOP_KEYS } from './src/teams.mjs';
 import { POS, NAT, pSlug, ageAt, dateGr } from './src/players.mjs';
 import { seasonCode, seasonLabel, seasonStart } from './src/season.mjs';
 import { marketXG, fit, predict, devig } from './src/model.mjs';
 import { oddsOf, bestOf, BOOKS } from './src/odds.mjs';
+import { settle, pickLabel } from './src/tips.mjs';
 
 const SITE_URL = (process.env.SITE_URL || 'https://kotetsi.github.io/superleague-gr').replace(/\/$/, '');
 const BASE = process.env.SITE_BASE ?? '/superleague-gr/';
 const OUT = 'dist';
 const NAME = 'Στατιστικά Super League';
 const CSSV = createHash('md5').update(await fs.readFile('src/style.css')).digest('hex').slice(0, 8);
+const SHOPD = JSON.parse(await fs.readFile('data/shop.json', 'utf8').catch(() => '{"items":[]}'));
 const TODAY = process.env.BUILD_DATE || new Date().toISOString().slice(0, 10);
 
 // ---------- δεδομένα
@@ -158,7 +160,7 @@ function page(p, { title, desc, body, ld = [], crumbs = [] }) {
 ${[...bc, ...ld].map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join('\n')}
 </head><body>
 <header class="top"><div class="wrap"><a class="brand" href="${U('')}">Στατιστικά <b>Super League</b></a>
-<nav aria-label="Κύριο μενού"><a href="${U('')}">Αγωνιστική</a><a href="${U('vathmologia/')}">Βαθμολογία</a><a href="${U('programma/')}">Πρόγραμμα</a><a href="${U('apotelesmata/')}">Αποτελέσματα</a><a href="${U('agonistiki/')}">Αγωνιστικές</a><a href="${U('omades/')}">Ομάδες</a><a href="${U('paiktes/')}">Παίκτες</a><a href="${U('statistika/')}">Στατιστικά</a><a href="${U('montelo/')}">Ευκαιρίες</a><a href="${U('paixnidi/')}">Παιχνίδι</a><a href="${U('kouiz/')}">Κουίζ</a></nav></div></header>
+<nav aria-label="Κύριο μενού"><a href="${U('')}">Αγωνιστική</a><a href="${U('vathmologia/')}">Βαθμολογία</a><a href="${U('programma/')}">Πρόγραμμα</a><a href="${U('apotelesmata/')}">Αποτελέσματα</a><a href="${U('agonistiki/')}">Αγωνιστικές</a><a href="${U('omades/')}">Ομάδες</a><a href="${U('paiktes/')}">Παίκτες</a><a href="${U('statistika/')}">Στατιστικά</a><a href="${U('montelo/')}">Ευκαιρίες</a><a href="${U('tipsters/')}">Tips</a>${SHOPD.items.length ? `<a href="${U('eshop/')}">Eshop</a>` : ''}<a href="${U('paixnidi/')}">Παιχνίδι</a><a href="${U('kouiz/')}">Κουίζ</a></nav></div></header>
 <main>${crumbs.length ? body.replace('<!--crumbs-->', `<div class="crumbs"><a href="${U('')}">Αρχική</a>${crumbs.map(([n, u], i) => i === crumbs.length - 1 ? ` › ${esc(n)}` : ` › <a href="${U(u)}">${esc(n)}</a>`).join('')}</div>`) : body}</main>
 <footer class="band"><div class="wrap"><p>${NAME} · Super League ${seasonLabel(cur)} · ενημέρωση ${dLong(TODAY)}.</p>
 <p>Δεδομένα: football-data.co.uk. Τα ποσοστά 1-Χ-2 και over/under είναι οι μέσες αποδόσεις της αγοράς χωρίς γκανιότα· τα αναμενόμενα γκολ και τα πιθανότερα σκορ βγαίνουν από μοντέλο γκολ (Dixon-Coles). Δεν αποτελούν συμβουλή στοιχήματος. 21+ · Παίξε υπεύθυνα.</p></div></footer>
@@ -422,6 +424,13 @@ page('anametriseis/', {
   body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Ιστορικό αναμετρήσεων</h1><p class="sub">${PAIRS.length} ζευγάρια ομάδων, ${ALLH.length} αγώνες από το ${seasonStart(FIRST_SEASON)}.</p></div></section>
 <section class="band"><div class="wrap scards">${TABLE.map(r => `<div class="scard"><h2>${tlink(r.t)}</h2><ul class="plist">${PAIRS.filter(p => p.A === r.t || p.B === r.t).map(p => { const o = p.A === r.t ? p.B : p.A; return `<li><a href="${pairUrl(r.t, o)}">απέναντι ${esc(o === 'AEK' || o === 'Larisa' ? 'στην ' : 'στον ')}${esc(grName(o))}</a> <small>${p.L.length}</small></li>`; }).join('')}</ul></div>`).join('')}</div></section>`,
 });
+// ---------- eshop (sportarena.gr): προϊόντα ανά ομάδα από το XML feed
+const SHOP_URL = 'https://sportarena.gr', utm = (u, c) => u + (u.includes('?') ? '&' : '?') + `utm_source=superleague-gr&utm_medium=referral&utm_campaign=${c}`;
+const plain = x => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase() + ' ';
+const shopFor = t => (SHOP_KEYS[t] ? SHOPD.items.filter(p => SHOP_KEYS[t].some(k => plain(p.name + ' ' + p.cat).includes(k))) : []);
+const prodCard = (p, c) => `<a class="prod" href="${esc(utm(p.link, c))}" rel="sponsored noopener" target="_blank">${p.img ? `<img src="${esc(p.img)}" alt="${esc(p.name)}" loading="lazy">` : ''}<span>${esc(p.name)}</span>${p.price ? `<b>${p.price.toFixed(2).replace('.', ',')} €</b>` : ''}</a>`;
+const shopBox = (t, n = 4) => { const L = shopFor(t).slice(0, n); return L.length ? `<h2>Από το Sport Arena</h2><div class="prods">${L.map(p => prodCard(p, slugOf(t))).join('')}</div><p><a href="${utm(SHOP_URL, slugOf(t))}" rel="sponsored noopener" target="_blank">Όλα τα προϊόντα στο sportarena.gr →</a></p>` : ''; };
+
 for (const t of TEAMS) {
   const T = PLD.teams[t]; if (!T) continue;
   ROSTER[t] = [];
@@ -457,7 +466,7 @@ ${s.ne ? `<h3>Πότε σκοράρει και πότε δέχεται</h3><div 
 <h3>Ημίχρονο / Τελικό</h3>${s.nh ? `<div class="scroll"><table class="htft"><thead><tr><th class="l">Ημίχρονο ↓ Τελικό →</th><th>1</th><th>Χ</th><th>2</th></tr></thead><tbody>${['1', 'X', '2'].map(a => `<tr><td class="l">${{ 1: 'Προηγείται', X: 'Ισοπαλία', 2: 'Χάνει' }[a]}</td>${['1', 'X', '2'].map(b => `<td>${s.htft[a + '/' + b] || 0}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="note">1 = νίκη της ομάδας, 2 = νίκη του αντιπάλου, από τη σκοπιά της ομάδας. Ανατροπές: ${s.comeW} · χαμένα προβαδίσματα: ${s.leadLost + s.leadDrew}.</p>` : ''}
 ${s.nodds ? `<h3>Αν πόνταρες 1 € σε κάθε αγώνα</h3><div class="scroll"><table><tbody>${[['Νίκη της', s.pW, s.nodds], ['Ισοπαλία', s.pX, s.nodds], ['Ήττα της', s.pL, s.nodds], ['Over 2,5', s.pO, s.nou], ['Under 2,5', s.pU, s.nou]].map(([l, v, k]) => `<tr><td class="l">${l}</td><td class="${v >= 0 ? 'pos-v' : 'neg-v'}"><b>${v > 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')} €</b></td><td>${k} αγ.</td></tr>`).join('')}</tbody></table></div><p class="note">Μέσες αποδόσεις κλεισίματος. Φαβορί σε ${s.favN} αγώνες, κέρδισε ${s.favW}.</p>` : ''}
 <h3>Θέση στα στατιστικά της λίγκας</h3><div class="scroll"><table><tbody>${STATS.map(st => { const r = RANK[st.slug].find(x => x.t === t); return r ? `<tr><td class="l"><a href="${statUrl(st)}">${st.name}</a></td><td>${sval(st, r.v)}</td><td>${r.pos}η</td></tr>` : ''; }).join('')}</tbody></table></div></div>
-<div><h2>Αγώνες σεζόν</h2><div class="scroll"><table><thead><tr><th class="l">Ημ/νία</th><th class="l">Αντίπαλος</th><th></th><th>Σκορ</th></tr></thead><tbody>${s.games.map(g => `<tr><td class="l">${dShort(g.m.date)}</td><td class="l team">${tlink(g.opp)}</td><td class="l">${g.home ? 'εντός' : 'εκτός'}</td><td class="sc ${g.r}"><a href="${U(matchPath(g.m))}">${g.m.hg}-${g.m.ag}</a></td></tr>`).join('')}</tbody></table></div>${rosterHtml(t)}${PAIRS.some(p => p.A === t || p.B === t) ? `<h2>Ιστορικό απέναντι σε κάθε αντίπαλο</h2><div class="chips light">${PAIRS.filter(p => p.A === t || p.B === t).map(p => { const o = p.A === t ? p.B : p.A; return `<a href="${pairUrl(t, o)}">${esc(grName(o))}</a>`; }).join('')}</div>` : ''}</div></div></section>`,
+<div><h2>Αγώνες σεζόν</h2><div class="scroll"><table><thead><tr><th class="l">Ημ/νία</th><th class="l">Αντίπαλος</th><th></th><th>Σκορ</th></tr></thead><tbody>${s.games.map(g => `<tr><td class="l">${dShort(g.m.date)}</td><td class="l team">${tlink(g.opp)}</td><td class="l">${g.home ? 'εντός' : 'εκτός'}</td><td class="sc ${g.r}"><a href="${U(matchPath(g.m))}">${g.m.hg}-${g.m.ag}</a></td></tr>`).join('')}</tbody></table></div>${shopBox(t)}${rosterHtml(t)}${PAIRS.some(p => p.A === t || p.B === t) ? `<h2>Ιστορικό απέναντι σε κάθε αντίπαλο</h2><div class="chips light">${PAIRS.filter(p => p.A === t || p.B === t).map(p => { const o = p.A === t ? p.B : p.A; return `<a href="${pairUrl(t, o)}">${esc(grName(o))}</a>`; }).join('')}</div>` : ''}</div></div></section>`,
   });
 }
 
@@ -506,6 +515,20 @@ const h2h = (a, b) => M.filter(m => (m.h === a && m.a === b) || (m.h === b && m.
 const h2hHtml = (a, b) => { const H = h2h(a, b); return H.length ? `<div class="scroll"><table><tbody>${H.map(m => `<tr><td class="l">${m.date.slice(8)}/${m.date.slice(5, 7)}/${m.date.slice(2, 4)}</td><td class="l">${esc(grName(m.h))}</td><td class="sc">${m.hg}-${m.ag}</td><td class="l">${esc(grName(m.a))}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">Δεν έχουν αναμετρηθεί τις δύο τελευταίες σεζόν.</p>'; };
 const eventLd = (m, extra = {}) => ({ '@context': 'https://schema.org', '@type': 'SportsEvent', name: `${grName(m.h)} – ${grName(m.a)}`, sport: 'Soccer', startDate: m.time ? `${m.date}T${m.time}:00+02:00` : m.date, homeTeam: { '@type': 'SportsTeam', name: grName(m.h) }, awayTeam: { '@type': 'SportsTeam', name: grName(m.a) }, superEvent: { '@type': 'SportsEvent', name: `Super League ${seasonLabel(cur)}` }, eventStatus: 'https://schema.org/EventScheduled', ...extra });
 
+// ---------- στήλη tipsters
+const TIPD = JSON.parse(await fs.readFile('data/tips.json', 'utf8').catch(() => '{"tips":[]}'));
+const TIPS = (TIPD.tips || []).map((t, i) => {
+  const m = CUR.find(x => x.h === t.h && x.a === t.a && Math.abs(dObj(x.date) - dObj(t.date)) < 3 * 864e5);
+  const f = FIX.find(x => x.h === t.h && x.a === t.a);
+  const res = settle(t, m), st = +t.stake || 1;
+  return { ...t, i, m, f, res, st, pl: res === 'won' ? st * (t.odds - 1) : res === 'lost' ? -st : 0 };
+}).sort((a, b) => b.date.localeCompare(a.date));
+const tipsDone = TIPS.filter(t => t.res && t.res !== 'void');
+const TIPREC = { n: tipsDone.length, w: tipsDone.filter(t => t.res === 'won').length, pl: tipsDone.reduce((s, t) => s + t.pl, 0), staked: tipsDone.reduce((s, t) => s + t.st, 0) };
+const tipCard = t => { const hn = grName(t.h), an = grName(t.a), url = t.m ? U(matchPath(t.m)) : t.f ? U(matchPath(t.f)) : null;
+  return `<article class="tip ${t.res || 'open'}"><header><span>${dShort(t.date)}</span>${url ? `<a href="${url}">${esc(hn)} – ${esc(an)}</a>` : `<b>${esc(hn)} – ${esc(an)}</b>`}${t.m ? `<span class="fin">${t.m.hg}-${t.m.ag}</span>` : ''}</header>
+<div class="pick"><b>${esc(pickLabel(t.pick, hn, an))}</b> @ <b>${(+t.odds).toFixed(2)}</b> <small>${t.st} ${t.st === 1 ? 'μονάδα' : 'μονάδες'}${t.book ? ' · ' + esc(t.book) : ''}</small>${t.res ? `<span class="res">${{ won: '✔ Κέρδισε', lost: '✘ Έχασε', void: 'Επιστροφή' }[t.res]}${t.res !== 'void' ? ` (${t.pl > 0 ? '+' : ''}${t.pl.toFixed(2).replace('.', ',')})` : ''}</span>` : ''}</div>
+${t.text ? `<p>${esc(t.text)}</p>` : ''}</article>`; };
 for (const f of FIX) {
   const A = ST[f.h]?.cur, B = ST[f.a]?.cur, nh = grName(f.h), na = grName(f.a);
   const cmp = A?.p && B?.p ? [['Βαθμοί/αγώνα', A.pts / A.p, B.pts / B.p, 2], ['Γκολ υπέρ', A.gf / A.p, B.gf / B.p, 1], ['Γκολ κατά', A.ga / A.p, B.ga / B.p, 1], ['Σουτ στην εστία', A.sot / A.p, B.sot / B.p, 1], ['Κόρνερ', A.corners / A.p, B.corners / B.p, 1], ['Κάρτες', A.cards / A.p, B.cards / B.p, 1], ['Over 1,5', A.o15 / A.p, B.o15 / B.p, 0], ['Over 2,5', A.o25 / A.p, B.o25 / B.p, 0], ['Γκολ-γκολ', A.btts / A.p, B.btts / B.p, 0], ['Ανέπαφη εστία', A.cs / A.p, B.cs / B.p, 0], ['Προηγείται στο ημίχρονο', A.nh ? A.htW / A.nh : 0, B.nh ? B.htW / B.nh : 0, 0], ['Ισοπαλία στο ημίχρονο', A.nh ? A.htD / A.nh : 0, B.nh ? B.htD / B.nh : 0, 0], ['Συνολικά κόρνερ αγώνα', (A.corners + A.cornA) / A.p, (B.corners + B.cornA) / B.p, 1], ['Over 4,5 κάρτες', A.nk ? A.crd45 / A.nk : 0, B.nk ? B.crd45 / B.nk : 0, 0]] : [];
@@ -522,7 +545,7 @@ for (const f of FIX) {
 <section class="band"><div class="wrap duo"><div><p class="prose">${f.p[0] === f.p[2] ? 'Χωρίς φαβορί.' : `Φαβορί: ${esc(fav)} (${pc(Math.max(f.p[0], f.p[2]))}).`} Ισοπαλία: ${pc(f.p[1])}. Η αγορά δίνει over 2,5 ${pc(f.o25)} και το μοντέλο ${pc(f.pred.o25)}, με ${f1(f.pred.lam + f.pred.mu)} αναμενόμενα γκολ. Το πιθανότερο ακριβές σκορ (${f.pred.top[0][0]}) έχει μόνο ${pc(f.pred.top[0][1])}: επειδή τα σκορ με 3+ γκολ είναι πολλά και το καθένα σπάνιο, το πιθανότερο ακριβές σκορ είναι σχεδόν πάντα χαμηλό, ακόμα κι όταν το over είναι πιθανότερο.</p>
 ${cmp.length ? `<h2>Σύγκριση σεζόν</h2><div class="cmp" style="font-weight:600"><span></span><span style="text-align:right">${esc(nh)}</span><span></span><span>${esc(na)}</span><span></span></div>${cmp.map(([l, x, y, d]) => { const mx = Math.max(x, y) || 1; return `<div class="cmp"><span class="n1">${fmt(x, d)}</span><span class="bl"><i style="width:${(100 * x / mx).toFixed(0)}%"></i></span><span class="lb">${l}</span><span class="br"><i style="width:${(100 * y / mx).toFixed(0)}%"></i></span><span>${fmt(y, d)}</span></div>`; }).join('')}
 <h3>Φόρμα</h3><p>${tlink(f.h)} ${formHtml(A.games.slice(0, 5).map(g => g.r))}</p><p>${tlink(f.a)} ${formHtml(B.games.slice(0, 5).map(g => g.r))}</p>` : ''}</div>
-<div><h2>Αποδόσεις και πιθανότητες</h2>${f.odds ? `<div class="scroll"><table><thead><tr><th class="l"></th><th>1</th><th>X</th><th>2</th></tr></thead><tbody><tr><td class="l">Μέση απόδοση</td>${f.odds.map(o => `<td>${o.toFixed(2)}</td>`).join('')}</tr><tr><td class="l"><b>Αγορά χωρίς γκανιότα</b></td>${f.mkt.map(p => `<td><b>${pc(p)}</b></td>`).join('')}</tr><tr><td class="l">Μοντέλο γκολ</td>${[f.pred.h, f.pred.d, f.pred.a].map(p => `<td>${pc(p)}</td>`).join('')}</tr></tbody></table></div><p class="note">Σε έλεγχο 1.727 αγώνων (2018–2026) η αγορά ήταν πιο ακριβής από το μοντέλο, γι' αυτό τα ποσοστά της σελίδας είναι της αγοράς. Όπου το μοντέλο διαφωνεί πολύ, αξίζει να ψάξεις απουσίες και νέα.</p>` : '<p class="note">Δεν υπάρχουν ακόμα αποδόσεις· τα ποσοστά είναι του μοντέλου.</p>'}
+<div>${TIPS.filter(t => t.f === f).length ? `<h2>Tip</h2>${TIPS.filter(t => t.f === f).map(tipCard).join('')}<p><a href="${U('tipsters/')}">Όλα τα tips →</a></p>` : ''}<h2>Αποδόσεις και πιθανότητες</h2>${f.odds ? `<div class="scroll"><table><thead><tr><th class="l"></th><th>1</th><th>X</th><th>2</th></tr></thead><tbody><tr><td class="l">Μέση απόδοση</td>${f.odds.map(o => `<td>${o.toFixed(2)}</td>`).join('')}</tr><tr><td class="l"><b>Αγορά χωρίς γκανιότα</b></td>${f.mkt.map(p => `<td><b>${pc(p)}</b></td>`).join('')}</tr><tr><td class="l">Μοντέλο γκολ</td>${[f.pred.h, f.pred.d, f.pred.a].map(p => `<td>${pc(p)}</td>`).join('')}</tr></tbody></table></div><p class="note">Σε έλεγχο 1.727 αγώνων (2018–2026) η αγορά ήταν πιο ακριβής από το μοντέλο, γι' αυτό τα ποσοστά της σελίδας είναι της αγοράς. Όπου το μοντέλο διαφωνεί πολύ, αξίζει να ψάξεις απουσίες και νέα.</p>` : '<p class="note">Δεν υπάρχουν ακόμα αποδόσεις· τα ποσοστά είναι του μοντέλου.</p>'}
 <h3>Τελευταίες μεταξύ τους</h3>${h2hHtml(f.h, f.a)}${h2hLink(f.h, f.a)}</div></div></section>`,
   });
 }
@@ -698,6 +721,17 @@ page('agonistiki/', {
   });
 }
 
+page('tipsters/', {
+  title: `Tips Super League: προγνωστικά αγωνιστικής με ανάλυση | ${NAME}`,
+  desc: `Τα προγνωστικά της στήλης για τους αγώνες της Super League, με ανάλυση, απόδοση και καταγεγραμμένο ιστορικό${TIPREC.n ? `: ${TIPREC.w}/${TIPREC.n} επιτυχίες, ${TIPREC.pl >= 0 ? '+' : ''}${TIPREC.pl.toFixed(1)} μονάδες` : ''}.`,
+  crumbs: [['Tipsters', 'tipsters/']],
+  body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Tips${TIPD.author ? ' του ' + esc(TIPD.author) : ''}</h1><p class="sub">Προγνωστικά για τη Super League με ανάλυση. Κάθε tip καταγράφεται πριν τον αγώνα και κρίνεται αυτόματα από το τελικό σκορ.</p>
+${TIPREC.n ? `<div class="figs"><div class="fig1"><b>${TIPREC.w}/${TIPREC.n}</b><span>επιτυχίες</span></div><div class="fig1"><b class="${TIPREC.pl >= 0 ? '' : ''}">${TIPREC.pl >= 0 ? '+' : ''}${TIPREC.pl.toFixed(2).replace('.', ',')}</b><span>μονάδες κέρδος</span></div><div class="fig1"><b>${pp(TIPREC.pl / TIPREC.staked)}</b><span>ROI</span></div></div>` : ''}</div></section>
+<section class="band"><div class="wrap duo"><div><h2>Ανοιχτά tips</h2>${TIPS.filter(t => !t.res).map(tipCard).join('') || '<p>Τα tips της επόμενης αγωνιστικής έρχονται σύντομα.</p>'}</div>
+<div><h2>Ιστορικό</h2>${TIPS.filter(t => t.res).map(tipCard).join('') || '<p class="note">Δεν έχει κριθεί ακόμα κανένα tip.</p>'}</div></div></section>
+<section class="band"><div class="wrap"><p class="note">Τα tips είναι προσωπική άποψη και δεν αποτελούν συμβουλή στοιχήματος. 21+ · Παίξε υπεύθυνα.</p></div></section>`,
+});
+
 page('statistika/', {
   title: `Στοιχηματικά στατιστικά Super League ${seasonLabel(cur)}: ημίχρονο, ανατροπές, over, κόρνερ | ${NAME}`,
   desc: `Στοιχηματικά στατιστικά ομάδων Super League ${seasonLabel(cur)}: over/under, γκολ-γκολ, ημίχρονο/τελικό, ανατροπές, κόρνερ, κάρτες και κέρδος ανά ομάδα.`,
@@ -719,6 +753,28 @@ for (const st of STATS) {
 <div><h2>Γράφημα</h2>${statBars(st, L)}<h3>Άλλα στατιστικά</h3><nav class="chips light">${STATS.filter(x => x !== st).map(x => `<a href="${statUrl(x)}">${x.name}</a>`).join('')}</nav></div></div></section>`,
   });
 }
+
+// ---------- αναρτήσεις Telegram: το build γράφει τις υποψήφιες, το scripts/telegram.mjs στέλνει όσες δεν έχουν σταλεί
+{
+  const now = Date.now(), kick = x => new Date(`${x.date}T${x.time || '12:00'}:00+02:00`).getTime();
+  const tl = x => esc(x), RG = '<i>21+ | Παίζουμε υπεύθυνα. Δεν αποτελεί συμβουλή στοιχήματος.</i>', TG = [];
+  for (const t of TIPS) { if (t.res || !t.f || kick(t.f) <= now) continue; const hn = grName(t.h), an = grName(t.a);
+    TG.push({ key: `tip-${t.date}-${slugOf(t.h)}-${slugOf(t.a)}-${String(t.pick).toLowerCase().replace(/\s+/g, '')}`, text: `🎯 <b>Νέο tip</b>\n\n⚽ ${tl(hn)} – ${tl(an)}\n🕗 ${dShort(t.f.date)} ${t.f.time}\n\n👉 <b>${tl(pickLabel(t.pick, hn, an))}</b> @${(+t.odds).toFixed(2)}${t.text ? `\n\n📝 ${tl(t.text)}` : ''}\n\n📊 Όλα τα tips: ${SITE_URL}/tipsters/\n\n${RG}` }); }
+  if (curRound && !curRound.done) { const up = curRound.items.filter(x => !x.played).map(x => x.m), first = Math.min(...up.map(kick));
+    if (first - now < 36 * 3600e3 && first > now) TG.push({ key: `prev-${cur}-${curRound.n}`, text: `⚽ <b>Super League · ${curRound.n}η αγωνιστική</b>\n\n${up.map(f => `${dShort(f.date)} ${f.time} · ${tl(grName(f.h))} – ${tl(grName(f.a))}\n   1 ${pc(f.p[0])} · Χ ${pc(f.p[1])} · 2 ${pc(f.p[2])} · over ${pc(f.o25)}`).join('\n')}\n\n📊 Πιθανότητες, live σκορ και ανάλυση: ${SITE_URL}/agonistiki/${curRound.n}/\n🎮 Νίκησε το μοντέλο: ${SITE_URL}/paixnidi/\n\n${RG}` }); }
+  const lastDone = [...ROUNDS].reverse().find(R => R.done);
+  if (lastDone && lastDone.last >= new Date(now - 4 * 864e5).toISOString().slice(0, 10)) { const L = [...lastDone.items, ...lastDone.extra].filter(x => x.played).map(x => x.m);
+    TG.push({ key: `res-${cur}-${lastDone.n}`, text: `🏁 <b>Super League · Αποτελέσματα ${lastDone.n}ης αγωνιστικής</b>\n\n${L.map(m => `${m.hg > m.ag ? '<b>' + tl(grName(m.h)) + '</b>' : tl(grName(m.h))} ${m.hg}-${m.ag} ${m.ag > m.hg ? '<b>' + tl(grName(m.a)) + '</b>' : tl(grName(m.a))}`).join('\n')}\n\n📊 Σκόρερ, βαθμολογία, στατιστικά: ${SITE_URL}/agonistiki/${lastDone.n}/` }); }
+  await fs.writeFile('telegram-queue.json', JSON.stringify(TG, null, 1));
+}
+
+if (SHOPD.items.length) page('eshop/', {
+  title: `Φανέλες και είδη ομάδων Super League | ${NAME}`,
+  desc: 'Φανέλες, κασκόλ και είδη οπαδών για τις ομάδες της Super League από το Sport Arena (sportarena.gr).',
+  crumbs: [['Eshop', 'eshop/']],
+  body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Eshop</h1><p class="sub">Είδη για τις ομάδες της Super League από το <a href="${utm(SHOP_URL, 'eshop')}" rel="sponsored noopener" target="_blank" style="color:var(--card)">Sport Arena</a>.</p></div></section>
+${TEAMS.filter(t => shopFor(t).length).map(t => `<section class="band"><div class="wrap"><h2>${tlink(t)}</h2><div class="prods">${shopFor(t).slice(0, 8).map(p => prodCard(p, 'eshop-' + slugOf(t))).join('')}</div></div></section>`).join('')}`,
+});
 
 page('404.html', { title: `Η σελίδα δεν βρέθηκε | ${NAME}`, desc: 'Η σελίδα δεν βρέθηκε.', body: `<section class="band"><div class="wrap"><h1>Η σελίδα δεν βρέθηκε</h1><p><a href="${U('')}">Επιστροφή στην αρχική</a></p></div></section>` });
 

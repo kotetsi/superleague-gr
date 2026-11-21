@@ -53,3 +53,6 @@ export const genOf = t => WIKI[t]?.[1] ?? grName(t);
 export const ESPN_ID = { 887: 'AEK', 5276: 'Levadeiakos', 8354: 'Asteras Tripolis', 132429: 'Kalamata', 2575: 'Iraklis', 443: 'Panathinaikos', 1010: 'OFI Crete', 6790: 'Atromitos', 435: 'Olympiakos', 605: 'PAOK', 11553: 'Aris', 11431: 'Panetolikos', 20043: 'Volos NFC', 21969: 'Kifisia' };
 export const ESPN_NAME = { 'AEK Athens': 'AEK', 'Levadiakos': 'Levadeiakos', 'Asteras Tripoli': 'Asteras Tripolis', 'Olympiacos': 'Olympiakos', 'AEL Larissa': 'Larisa', 'Larissa': 'Larisa', 'PAS Lamia': 'Lamia', 'Lamia': 'Lamia', 'Athens Kallithea': 'Athens Kallithea', 'Panserraikos': 'Panserraikos' };
 export const espnTeam = (id, name) => ESPN_ID[id] || ESPN_NAME[name] || name;
+
+// Λέξεις για να βρεθούν τα προϊόντα κάθε ομάδας στο eshop (ελληνικά και λατινικά, χωρίς τόνους).
+export const SHOP_KEYS = { Panathinaikos: ['παναθηναικ', 'panathinaikos', 'pao '], Olympiakos: ['ολυμπιακ', 'olympiacos', 'olympiakos'], AEK: ['αεκ', 'aek '], PAOK: ['παοκ', 'paok'], Aris: ['αρης', 'aris '], 'OFI Crete': ['οφη', 'ofi '], Iraklis: ['ηρακλη', 'iraklis'] };

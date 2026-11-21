@@ -32,6 +32,11 @@ jobs:
       - name: Ιστορικό σεζόν
         run: node scripts/fetch-history.mjs
         continue-on-error: true
+      - name: Προϊόντα eshop (sportarena.gr)
+        env:
+          SHOP_FEED_URL: ${{ vars.SHOP_FEED_URL }}
+        run: node scripts/fetch-shop.mjs
+        continue-on-error: true
       - name: Τεστ
         run: node --test test/*.test.mjs
       - name: Χτίσιμο
@@ -40,6 +45,11 @@ jobs:
           SITE_BASE: ${{ vars.SITE_BASE || '/superleague-gr/' }}
           CNAME: ${{ vars.CNAME }}
         run: node build.mjs
+      - name: Αναρτήσεις στο κανάλι Telegram (μόνο αν υπάρχουν το secret και το κανάλι)
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT: ${{ vars.TELEGRAM_CHAT }}
+        run: node scripts/telegram.mjs || true
       - name: Αποθήκευση δεδομένων
         run: |
           git config user.name "github-actions[bot]"

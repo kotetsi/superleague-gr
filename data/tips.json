@@ -1,0 +1,5 @@
+{
+ "_note": "Tips της στήλης. Προσθήκη: date (ημέρα αγώνα), h, a (ονόματα football-data), market + pick, odds, stake (μονάδες), text (ανάλυση). Τα 1/X/2, 1X/X2/12, Over/Under x.5, GG/NG κρίνονται αυτόματα· για άλλες αγορές συμπλήρωσε result: won/lost/void.",
+ "author": "",
+ "tips": []
+}

@@ -130,3 +130,13 @@ footer a{color:#fff}
 .rr .t1{text-align:right}.rr .sc{font:800 20px "Fira Sans Condensed",sans-serif;text-decoration:none;color:inherit;white-space:nowrap}
 .rr .sco{grid-column:1/-1;text-align:center;color:var(--mute);font-size:12px}
 .mv .up{color:var(--h)}.mv .dn{color:#c8402f}.mv{font-size:12px}
+.tip{background:var(--panel);border-radius:12px;padding:14px 16px;margin:0 0 12px;border-left:4px solid var(--card)}
+.tip.won{border-left-color:var(--h)}.tip.lost{border-left-color:#c8402f}.tip.void{border-left-color:#8f9c95}
+.tip header{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:14px;color:var(--mute)}.tip header a,.tip header b{font:600 17px "Fira Sans",sans-serif;color:var(--ink)}
+.tip .fin{margin-left:auto;font-weight:700;color:var(--ink)}
+.tip .pick{margin:8px 0;font-size:17px}.tip .pick small{color:var(--mute)}
+.tip .res{display:block;font-size:14px;font-weight:600;margin-top:4px}.tip.won .res{color:var(--h)}.tip.lost .res{color:#c8402f}
+.tip p{margin:6px 0 0;line-height:1.55}
+.prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:10px 0}
+.prod{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:10px;background:var(--panel);text-decoration:none;color:var(--ink);font-size:14px}
+.prod img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;border-radius:6px}.prod b{color:var(--h)}
