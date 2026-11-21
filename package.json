@@ -1,0 +1,1 @@
+{ "name": "superleague-gr", "private": true, "type": "module", "scripts": { "fetch": "node scripts/fetch.mjs", "build": "node build.mjs", "test": "node --test test/*.test.mjs" } }

@@ -1,0 +1,51 @@
+name: Ενημέρωση και δημοσίευση site
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Δευτέρα και Πέμπτη 08:20 UTC (μετά τις αγωνιστικές και πριν τις επόμενες)
+    - cron: '20 8 * * 1,4'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Κατέβασμα δεδομένων (football-data.co.uk)
+        run: node scripts/fetch.mjs
+      - name: Τεστ
+        run: node --test test/*.test.mjs
+      - name: Χτίσιμο
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://kotetsi.github.io/superleague-gr' }}
+          SITE_BASE: ${{ vars.SITE_BASE || '/superleague-gr/' }}
+          CNAME: ${{ vars.CNAME }}
+        run: node build.mjs
+      - name: Αποθήκευση δεδομένων
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || (git commit -m "Δεδομένα $(date -u +%F)" && git push)
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

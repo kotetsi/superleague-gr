@@ -1,0 +1,80 @@
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0f1712);--ink:light-dark(#14201a,#e9f1ec);--mute:light-dark(#5c6b63,#9fb2a7);--line:light-dark(#dfe7e2,#24332b);--pitch:#0e4d33;--pitch2:#0a3d28;--chalk:#f4faf6;--card:#f5c518;--h:#1f8a5b;--panel:light-dark(#f4f8f5,#152019)}
+*{box-sizing:border-box;min-width:0}
+html{scroll-padding-top:72px}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 "Fira Sans",system-ui,sans-serif;overflow-x:clip}
+a{color:inherit}
+.band{padding:clamp(24px,4vw,56px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+header.top{background:var(--pitch2);color:var(--chalk);padding:10px max(5vw,16px)}
+header.top .wrap{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center}
+.brand{font:800 22px/1 "Fira Sans Condensed",sans-serif;text-decoration:none}
+.brand b{color:var(--card)}
+nav{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:15px}
+nav a{text-decoration:none;opacity:.85;padding:10px 0}
+nav a:hover,nav a:focus-visible{opacity:1;text-decoration:underline}
+.crumbs{font-size:14px;color:#cfe3d7;margin-bottom:8px}
+.crumbs a{color:#cfe3d7}
+.hero{background:var(--pitch);color:var(--chalk);background-image:repeating-linear-gradient(90deg,transparent 0 80px,rgba(255,255,255,.035) 80px 160px)}
+h1,h2,h3{font-family:"Fira Sans Condensed",sans-serif;line-height:1.05;letter-spacing:-.02em;margin:0;text-wrap:balance}
+h1{font-size:clamp(32px,4.6vw,50px);font-weight:800}
+h2{font-size:28px;font-weight:800;margin-bottom:14px}
+h3{font-size:20px;font-weight:600;margin:22px 0 8px}
+.sub{color:var(--mute);margin:6px 0 0}
+.hero .sub{color:#cfe3d7}
+.board{margin-top:22px;display:grid;gap:10px}
+.fx{display:grid;grid-template-columns:92px minmax(0,1fr) minmax(0,1.3fr) 76px;gap:14px;align-items:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 16px;text-decoration:none}
+.fx:hover,.fx:focus-visible{background:rgba(255,255,255,.13);outline:2px solid var(--card);outline-offset:1px}
+.fx .when{font-size:14px;color:#cfe3d7;white-space:nowrap}
+.fx .when b{display:block;color:var(--chalk);font:600 18px/1.1 "Fira Sans Condensed",sans-serif}
+.fx .teams{font:600 19px/1.25 "Fira Sans Condensed",sans-serif}
+.fx .teams span{display:block}
+.strip{display:flex;height:30px;border-radius:6px;overflow:hidden;font:600 14px/30px "Fira Sans Condensed",sans-serif}
+.strip i{font-style:normal;text-align:center;white-space:nowrap;overflow:hidden}
+.strip .ph{background:#2fa56f;color:#fff}.strip .pd{background:#c8d3cc;color:#1b2a22}.strip .pa{background:#3d74c4;color:#fff}
+.legend{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:#cfe3d7;margin-top:4px}
+.fx .score{text-align:center;font:800 26px/1 "Fira Sans Condensed",sans-serif;color:var(--card)}
+.fx .score small{display:block;font:400 12px/1.3 "Fira Sans",sans-serif;color:#cfe3d7;margin-top:4px}
+.note{font-size:13px;color:var(--mute);margin-top:12px}
+.hero .note{color:#bcd5c6}
+.cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:clamp(20px,3vw,40px);align-items:start}
+.duo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(16px,3vw,36px);align-items:start}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-weight:600;color:var(--mute);font-size:13px}
+td.l,th.l{text-align:left}
+td.pos{width:28px;color:var(--mute)}
+tr.cl td.pos{color:var(--h);font-weight:600}
+td.team a{text-decoration:none;font-weight:600}
+td.team a:hover{text-decoration:underline}
+td.sc{font-weight:600;text-align:center}
+td.sc a{text-decoration:none}
+.W{color:var(--h)}.L{color:#c8402f}
+.form{display:inline-flex;gap:3px;vertical-align:middle}
+.form i{width:20px;height:20px;border-radius:4px;font:600 12px/20px "Fira Sans Condensed",sans-serif;font-style:normal;text-align:center;color:#fff}
+.form .W{background:var(--h);color:#fff}.form .D{background:#8f9c95}.form .L{background:#c8402f;color:#fff}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(9em,1fr));gap:10px;margin-top:18px}
+.fig1{background:var(--panel);border-radius:10px;padding:14px}
+.hero .fig1{background:rgba(255,255,255,.08)}
+.fig1 b{display:block;font:800 clamp(24px,3vw,32px)/1.1 "Fira Sans Condensed",sans-serif}
+.fig1 span{font-size:14px;color:var(--mute)}
+.hero .fig1 span{color:#cfe3d7}
+.rows{display:grid;gap:8px;margin-top:8px}
+.row{display:grid;grid-template-columns:9em minmax(0,1fr) 3.2em;gap:10px;align-items:center;font-size:15px}
+.bar{height:12px;background:var(--line);border-radius:6px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--h)}
+.row .v{text-align:right;font-variant-numeric:tabular-nums}
+.cmp{display:grid;grid-template-columns:3.5em minmax(0,1fr) 8em minmax(0,1fr) 3.5em;gap:8px;align-items:center;font-size:15px;margin:7px 0}
+.cmp .lb{text-align:center;color:var(--mute);font-size:14px}
+.cmp .bl{display:flex;justify-content:flex-end}.cmp .bl i,.cmp .br i{display:block;height:12px;border-radius:6px}
+.cmp .bl i{background:#2fa56f}.cmp .br i{background:#3d74c4}
+.cmp .n1{text-align:right}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(14em,1fr));gap:10px;margin-top:20px}
+.tgrid a{display:flex;justify-content:space-between;gap:10px;padding:14px 16px;border-radius:10px;background:rgba(255,255,255,.08);text-decoration:none;font:600 19px "Fira Sans Condensed",sans-serif}
+.tgrid a:hover{outline:2px solid var(--card)}
+.prose{max-width:70ch}
+footer{background:var(--pitch2);color:#cfe3d7;font-size:14px}
+footer p{margin:4px 0}
+footer a{color:#fff}
+@media(max-width:760px){.cols,.duo{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:600px){.fx{grid-template-columns:minmax(0,1fr) 64px;gap:8px 12px}.fx .when{grid-column:1/-1;display:flex;gap:8px;align-items:baseline}.fx .when b{display:inline}.fx .prob{grid-column:1/-1;grid-row:3}table{font-size:13px}th,td{padding:6px 4px}.hide-s{display:none}.row{grid-template-columns:7em minmax(0,1fr) 3em}.cmp{grid-template-columns:2.8em minmax(0,1fr) 6.5em minmax(0,1fr) 2.8em;font-size:13px}}
