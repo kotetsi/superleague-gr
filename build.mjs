@@ -3,7 +3,8 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { grName, slugOf } from './src/teams.mjs';
+import { grName, slugOf, genOf } from './src/teams.mjs';
+import { POS, NAT, pSlug, ageAt, dateGr } from './src/players.mjs';
 import { seasonCode, seasonLabel } from './src/season.mjs';
 import { marketXG, fit, predict, devig } from './src/model.mjs';
 
@@ -125,7 +126,7 @@ function page(p, { title, desc, body, ld = [], crumbs = [] }) {
 ${[...bc, ...ld].map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join('\n')}
 </head><body>
 <header class="top"><div class="wrap"><a class="brand" href="${U('')}">Στατιστικά <b>Super League</b></a>
-<nav aria-label="Κύριο μενού"><a href="${U('')}">Αγωνιστική</a><a href="${U('vathmologia/')}">Βαθμολογία</a><a href="${U('programma/')}">Πρόγραμμα</a><a href="${U('apotelesmata/')}">Αποτελέσματα</a><a href="${U('omades/')}">Ομάδες</a><a href="${U('statistika/')}">Στατιστικά</a><a href="${U('paixnidi/')}">Παιχνίδι</a><a href="${U('kouiz/')}">Κουίζ</a></nav></div></header>
+<nav aria-label="Κύριο μενού"><a href="${U('')}">Αγωνιστική</a><a href="${U('vathmologia/')}">Βαθμολογία</a><a href="${U('programma/')}">Πρόγραμμα</a><a href="${U('apotelesmata/')}">Αποτελέσματα</a><a href="${U('omades/')}">Ομάδες</a><a href="${U('paiktes/')}">Παίκτες</a><a href="${U('statistika/')}">Στατιστικά</a><a href="${U('paixnidi/')}">Παιχνίδι</a><a href="${U('kouiz/')}">Κουίζ</a></nav></div></header>
 <main>${crumbs.length ? body.replace('<!--crumbs-->', `<div class="crumbs"><a href="${U('')}">Αρχική</a>${crumbs.map(([n, u], i) => i === crumbs.length - 1 ? ` › ${esc(n)}` : ` › <a href="${U(u)}">${esc(n)}</a>`).join('')}</div>`) : body}</main>
 <footer class="band"><div class="wrap"><p>${NAME} · Super League ${seasonLabel(cur)} · ενημέρωση ${dLong(TODAY)}.</p>
 <p>Δεδομένα: football-data.co.uk. Τα ποσοστά 1-Χ-2 και over/under είναι οι μέσες αποδόσεις της αγοράς χωρίς γκανιότα· τα αναμενόμενα γκολ και τα πιθανότερα σκορ βγαίνουν από μοντέλο γκολ (Dixon-Coles). Δεν αποτελούν συμβουλή στοιχήματος. 21+ · Παίξε υπεύθυνα.</p></div></footer>
@@ -240,6 +241,23 @@ page('omades/', {
   body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Ομάδες Super League ${seasonLabel(cur)}</h1><div class="tgrid">${TABLE.map((r, i) => `<a href="${teamUrl(r.t)}"><span>${i + 1}. ${esc(grName(r.t))}</span><span>${r.pts} β.</span></a>`).join('')}</div></div></section>`,
 });
 
+// ---------- παίκτες (Wikipedia/Wikidata)
+const PLD = JSON.parse(await fs.readFile('data/players.json', 'utf8').catch(() => '{"teams":{}}'));
+const PLAYERS = [], ROSTER = {}, usedSlug = new Set();
+for (const t of TEAMS) {
+  const T = PLD.teams[t]; if (!T) continue;
+  ROSTER[t] = [];
+  for (const p of T.players) {
+    if (!p.name) continue;
+    let sl = pSlug(p.name) || 'paiktis'; if (usedSlug.has(sl)) sl += '-' + slugOf(t); usedSlug.add(sl);
+    const gr = p.el && /[Α-Ωα-ω]/.test(p.el) ? p.el.replace(/\s*\(.*\)$/, '') : null;
+    const P = { ...p, t, slug: sl, dn: gr || p.name, age: ageAt(p.birth, TODAY), natN: NAT[p.nat] || p.nat || null, posN: POS[p.pos]?.[0] || null, src: T.source };
+    PLAYERS.push(P); ROSTER[t].push(P);
+  }
+}
+const playerUrl = P => U(`paiktes/${P.slug}/`);
+const rosterHtml = t => { const R = ROSTER[t]; if (!R?.length) return ''; return `<h2>Ρόστερ</h2>${['GK', 'DF', 'MF', 'FW', ''].map(pos => { const L = R.filter(p => (POS[p.pos] ? p.pos : '') === pos).sort((a, b) => (+a.no || 99) - (+b.no || 99)); return L.length ? `<h3>${POS[pos]?.[1] || 'Άλλοι'}</h3><div class="scroll"><table class="roster"><tbody>${L.map(p => `<tr><td class="pos">${esc(p.no)}</td><td class="l team"><a href="${playerUrl(p)}">${esc(p.dn)}</a>${p.loan ? ' <small>δανεικός</small>' : ''}</td><td class="l hide-s">${esc(p.natN || '')}</td><td>${p.age != null ? p.age + ' ετ.' : ''}</td></tr>`).join('')}</tbody></table></div>` : ''; }).join('')}<p class="note">Ρόστερ από τη <a href="${esc(PLD.teams[t].source)}" rel="nofollow">Wikipedia</a>, βιογραφικά από το Wikidata (CC BY-SA). Ενημέρωση ${dLong(PLD.updated || TODAY)}.</p>`; };
+
 for (const t of TEAMS) {
   const s = ST[t].cur, pv = ST[t].prev, pos = TABLE.findIndex(r => r.t === t) + 1, n = grName(t);
   const next = FIX.find(f => f.h === t || f.a === t);
@@ -260,9 +278,48 @@ ${next ? `<p class="note" style="font-size:15px">Επόμενος αγώνας: 
 <h3>Ημίχρονο / Τελικό</h3>${s.nh ? `<div class="scroll"><table class="htft"><thead><tr><th class="l">Ημίχρονο ↓ Τελικό →</th><th>1</th><th>Χ</th><th>2</th></tr></thead><tbody>${['1', 'X', '2'].map(a => `<tr><td class="l">${{ 1: 'Προηγείται', X: 'Ισοπαλία', 2: 'Χάνει' }[a]}</td>${['1', 'X', '2'].map(b => `<td>${s.htft[a + '/' + b] || 0}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="note">1 = νίκη της ομάδας, 2 = νίκη του αντιπάλου, από τη σκοπιά της ομάδας. Ανατροπές: ${s.comeW} · χαμένα προβαδίσματα: ${s.leadLost + s.leadDrew}.</p>` : ''}
 ${s.nodds ? `<h3>Αν πόνταρες 1 € σε κάθε αγώνα</h3><div class="scroll"><table><tbody>${[['Νίκη της', s.pW, s.nodds], ['Ισοπαλία', s.pX, s.nodds], ['Ήττα της', s.pL, s.nodds], ['Over 2,5', s.pO, s.nou], ['Under 2,5', s.pU, s.nou]].map(([l, v, k]) => `<tr><td class="l">${l}</td><td class="${v >= 0 ? 'pos-v' : 'neg-v'}"><b>${v > 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')} €</b></td><td>${k} αγ.</td></tr>`).join('')}</tbody></table></div><p class="note">Μέσες αποδόσεις κλεισίματος. Φαβορί σε ${s.favN} αγώνες, κέρδισε ${s.favW}.</p>` : ''}
 <h3>Θέση στα στατιστικά της λίγκας</h3><div class="scroll"><table><tbody>${STATS.map(st => { const r = RANK[st.slug].find(x => x.t === t); return r ? `<tr><td class="l"><a href="${statUrl(st)}">${st.name}</a></td><td>${sval(st, r.v)}</td><td>${r.pos}η</td></tr>` : ''; }).join('')}</tbody></table></div></div>
-<div><h2>Αγώνες σεζόν</h2><div class="scroll"><table><thead><tr><th class="l">Ημ/νία</th><th class="l">Αντίπαλος</th><th></th><th>Σκορ</th></tr></thead><tbody>${s.games.map(g => `<tr><td class="l">${dShort(g.m.date)}</td><td class="l team">${tlink(g.opp)}</td><td class="l">${g.home ? 'εντός' : 'εκτός'}</td><td class="sc ${g.r}"><a href="${U(matchPath(g.m))}">${g.m.hg}-${g.m.ag}</a></td></tr>`).join('')}</tbody></table></div></div></div></section>`,
+<div><h2>Αγώνες σεζόν</h2><div class="scroll"><table><thead><tr><th class="l">Ημ/νία</th><th class="l">Αντίπαλος</th><th></th><th>Σκορ</th></tr></thead><tbody>${s.games.map(g => `<tr><td class="l">${dShort(g.m.date)}</td><td class="l team">${tlink(g.opp)}</td><td class="l">${g.home ? 'εντός' : 'εκτός'}</td><td class="sc ${g.r}"><a href="${U(matchPath(g.m))}">${g.m.hg}-${g.m.ag}</a></td></tr>`).join('')}</tbody></table></div>${rosterHtml(t)}</div></div></section>`,
   });
 }
+
+// ---------- σελίδες παικτών
+for (const P of PLAYERS) {
+  const t = P.t, s = ST[t].cur, pos = TABLE.findIndex(r => r.t === t) + 1, next = FIX.find(f => f.h === t || f.a === t);
+  const prevClubs = (P.clubs || []).map(c => ({ ...c, n: String(c.n || c.en || '').replace(/\s*\([^)]*\)/g, '') })).filter(c => c.to).sort((a, b) => (b.to || '').localeCompare(a.to || '') || (b.from || '').localeCompare(a.from || '')).slice(0, 8);
+  const bio = [
+    `Ο ${P.dn} είναι ${(P.posN || 'ποδοσφαιριστής').toLowerCase()} ${genOf(t)}${P.no ? `, με τη φανέλα με το νούμερο ${P.no}` : ''}${P.loan ? ', όπου αγωνίζεται ως δανεικός' : ''}.`,
+    P.birth ? `Γεννήθηκε ${P.birth.length === 10 ? 'στις ' + dateGr(P.birth) : 'το ' + P.birth}${P.age != null ? ` και είναι ${P.age} ετών` : ''}.` : '',
+    P.natN ? `Εθνικότητα: ${P.natN}${P.intl ? ' (έχει αγωνιστεί με την εθνική ομάδα)' : ''}.` : '',
+    prevClubs.length ? `Προηγούμενες ομάδες: ${prevClubs.slice(0, 4).map(c => c.n).join(', ')}.` : '',
+  ].filter(Boolean).join(' ');
+  const facts = [['Ομάδα', tlink(t)], ['Θέση', esc(P.posN || '–')], ['Αριθμός', esc(P.no || '–')], ['Ηλικία', P.age != null ? P.age + ' ετών' : '–'], ['Γέννηση', esc([dateGr(P.birth), P.place].filter(Boolean).join(', ') || '–')], ['Εθνικότητα', esc(P.natN || '–')], ['Ύψος', P.height ? (P.height / 100).toFixed(2).replace('.', ',') + ' μ.' : '–']];
+  const mates = ROSTER[t].filter(x => x !== P && x.pos === P.pos).slice(0, 8);
+  page(`paiktes/${P.slug}/`, {
+    title: `${P.dn}: βιογραφικό, ηλικία, θέση – ${grName(t)} | ${NAME}`,
+    desc: `${P.dn}${P.posN ? ', ' + P.posN.toLowerCase() : ''} ${genOf(t)}${P.age != null ? `, ${P.age} ετών` : ''}${P.natN ? `, εθνικότητα ${P.natN}` : ''}. Βιογραφικό, προηγούμενες ομάδες και τα στατιστικά ${genOf(t)} στη Super League ${seasonLabel(cur)}.`,
+    crumbs: [['Παίκτες', 'paiktes/'], [grName(t), `omades/${slugOf(t)}/`], [P.dn, `paiktes/${P.slug}/`]],
+    ld: [{ '@context': 'https://schema.org', '@type': 'Person', name: P.dn, alternateName: P.name !== P.dn ? P.name : undefined, birthDate: P.birth?.length === 10 ? P.birth : undefined, height: P.height ? { '@type': 'QuantitativeValue', value: P.height, unitCode: 'CMT' } : undefined, nationality: P.natN ? { '@type': 'Country', name: P.natN } : undefined, jobTitle: 'Ποδοσφαιριστής', memberOf: { '@type': 'SportsTeam', name: grName(t), url: SITE_URL + '/omades/' + slugOf(t) + '/' }, sameAs: [P.wiki ? 'https://en.wikipedia.org/wiki/' + encodeURIComponent(P.wiki.replace(/ /g, '_')) : null, P.q ? 'https://www.wikidata.org/wiki/' + P.q : null].filter(Boolean) }],
+    body: `<section class="hero band"><div class="wrap"><!--crumbs--><div class="phead"><span class="avatar">${esc(P.no || P.dn.split(/\s+/).map(w => w[0]).join('').slice(0, 2))}</span><div><h1>${esc(P.dn)}</h1><p class="sub">${esc(P.posN || 'Ποδοσφαιριστής')} · ${esc(grName(t))}${P.age != null ? ' · ' + P.age + ' ετών' : ''}${P.natN ? ' · ' + esc(P.natN) : ''}</p></div></div></div></section>
+<section class="band"><div class="wrap duo"><div><p class="prose">${esc(bio)}</p>
+<div class="scroll"><table><tbody>${facts.map(([l, v]) => `<tr><td class="l">${l}</td><td class="l"><b>${v}</b></td></tr>`).join('')}</tbody></table></div>
+${prevClubs.length ? `<h2>Καριέρα</h2><div class="scroll"><table><tbody>${prevClubs.map(c => `<tr><td class="l">${esc(c.from || '')}${c.to ? '–' + esc(c.to) : ''}</td><td class="l">${esc(c.n)}${c.loan ? ' <small>(δανεικός)</small>' : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}
+<p class="note">Πηγές: <a href="${esc(P.src)}" rel="nofollow">Wikipedia</a>${P.q ? `, <a href="https://www.wikidata.org/wiki/${P.q}" rel="nofollow">Wikidata</a>` : ''} (CC BY-SA). Ατομικά στατιστικά αγώνων (γκολ, ασίστ, κάρτες) δεν είναι ακόμα διαθέσιμα.</p></div>
+<div><h2>${esc(grName(t))} στη Super League</h2><p>${pos}η θέση · ${s.pts} βαθμοί σε ${s.p} αγώνες · γκολ ${s.gf}:${s.ga}</p><p>${formHtml(s.games.slice(0, 5).map(g => g.r))}</p>
+${next ? `<p>Επόμενος αγώνας: <a href="${U(matchPath(next))}">${esc(grName(next.h))} – ${esc(grName(next.a))}</a>, ${dShort(next.date)} ${esc(next.time)}</p>` : ''}
+<p><a href="${teamUrl(t)}">Στατιστικά και ρόστερ ${esc(genOf(t))} →</a></p>
+${mates.length ? `<h3>Άλλοι ${POS[P.pos]?.[1].toLowerCase() || 'παίκτες'} ${esc(genOf(t))}</h3><div class="chips light">${mates.map(x => `<a href="${playerUrl(x)}">${esc(x.dn)}</a>`).join('')}</div>` : ''}</div></div></section>`,
+  });
+}
+if (PLAYERS.length) page('paiktes/', {
+  title: `Παίκτες Super League ${seasonLabel(cur)}: ρόστερ όλων των ομάδων | ${NAME}`,
+  desc: `Όλοι οι ${PLAYERS.length} παίκτες της Super League ${seasonLabel(cur)} ανά ομάδα και θέση, με ηλικία, εθνικότητα και βιογραφικό.`,
+  crumbs: [['Παίκτες', 'paiktes/']],
+  body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Παίκτες Super League ${seasonLabel(cur)}</h1><p class="sub">${PLAYERS.length} παίκτες σε ${Object.keys(ROSTER).length} ομάδες.</p>
+<input id="q" class="search" type="search" placeholder="Αναζήτηση παίκτη…" aria-label="Αναζήτηση παίκτη"><nav class="chips">${TABLE.filter(r => ROSTER[r.t]).map(r => `<a href="#${slugOf(r.t)}">${esc(grName(r.t))}</a>`).join('')}</nav></div></section>
+<section class="band"><div class="wrap scards" id="plist">${TABLE.filter(r => ROSTER[r.t]).map(r => `<div class="scard" id="${slugOf(r.t)}"><h2><a href="${teamUrl(r.t)}">${esc(grName(r.t))}</a></h2><ul class="plist">${['GK', 'DF', 'MF', 'FW'].flatMap(pos => ROSTER[r.t].filter(p => p.pos === pos)).concat(ROSTER[r.t].filter(p => !POS[p.pos])).map(p => `<li data-n="${esc((p.dn + ' ' + p.name).toLowerCase())}"><a href="${playerUrl(p)}">${esc(p.dn)}</a> <small>${esc(p.posN || '')}${p.age != null ? ', ' + p.age : ''}</small></li>`).join('')}</ul></div>`).join('')}</div>
+<p class="wrap note">Ρόστερ από τη Wikipedia, βιογραφικά από το Wikidata (CC BY-SA).</p></section>
+<script>const n=s=>s.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'');document.getElementById('q').addEventListener('input',e=>{const v=n(e.target.value);document.querySelectorAll('#plist li').forEach(li=>li.hidden=v&&!n(li.dataset.n).includes(v));document.querySelectorAll('#plist .scard').forEach(c=>c.hidden=v&&!c.querySelector('li:not([hidden])'))});</script>`,
+});
 
 const h2h = (a, b) => M.filter(m => (m.h === a && m.a === b) || (m.h === b && m.a === a)).slice(-6).reverse();
 const h2hHtml = (a, b) => { const H = h2h(a, b); return H.length ? `<div class="scroll"><table><tbody>${H.map(m => `<tr><td class="l">${m.date.slice(8)}/${m.date.slice(5, 7)}/${m.date.slice(2, 4)}</td><td class="l">${esc(grName(m.h))}</td><td class="sc">${m.hg}-${m.ag}</td><td class="l">${esc(grName(m.a))}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">Δεν έχουν αναμετρηθεί τις δύο τελευταίες σεζόν.</p>'; };

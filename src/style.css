@@ -105,3 +105,10 @@ footer a{color:#fff}
 .opt:hover{border-color:var(--h)}.opt.no{text-decoration:line-through;opacity:.45;cursor:default}
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
 .big{font:800 26px/1.2 "Fira Sans Condensed",sans-serif;margin:18px 0 4px}
+.phead{display:flex;gap:18px;align-items:center}
+.avatar{flex:none;width:72px;height:72px;border-radius:50%;background:var(--card);color:#14201a;display:grid;place-items:center;font:800 28px "Fira Sans Condensed",sans-serif}
+.roster small,.plist small{color:var(--mute);font-size:12px}
+.plist{list-style:none;padding:0;margin:0;columns:2;column-gap:16px;font-size:15px}
+.plist li{break-inside:avoid;padding:2px 0}
+.search{width:100%;max-width:420px;margin-top:16px;padding:10px 14px;border-radius:999px;border:0;font:16px "Fira Sans",sans-serif}
+@media(max-width:600px){.plist{columns:1}}
