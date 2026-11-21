@@ -26,6 +26,9 @@ jobs:
       - name: Ρόστερ και βιογραφικά (Wikipedia/Wikidata)
         run: node scripts/fetch-players.mjs
         continue-on-error: true
+      - name: Γεγονότα αγώνων (ESPN)
+        run: node scripts/fetch-espn.mjs
+        continue-on-error: true
       - name: Τεστ
         run: node --test test/*.test.mjs
       - name: Χτίσιμο
