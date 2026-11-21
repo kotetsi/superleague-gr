@@ -23,6 +23,9 @@ jobs:
           node-version: 22
       - name: Κατέβασμα δεδομένων (football-data.co.uk)
         run: node scripts/fetch.mjs
+      - name: Ρόστερ και βιογραφικά (Wikipedia/Wikidata)
+        run: node scripts/fetch-players.mjs
+        continue-on-error: true
       - name: Τεστ
         run: node --test test/*.test.mjs
       - name: Χτίσιμο
