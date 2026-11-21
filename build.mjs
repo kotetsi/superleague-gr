@@ -56,7 +56,7 @@ const FIX = fixRows.filter(r => r.HomeTeam).map(r => {
 
 // ---------- στατιστικά
 function teamStats(t, L) {
-  const s = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, games: [], home: [0, 0, 0], away: [0, 0, 0], o25: 0, btts: 0, cs: 0, fts: 0, shots: 0, sot: 0, corners: 0, cards: 0, shA: 0, sotA: 0, cornA: 0, yel: 0, red: 0, ht: [0, 0] };
+  const s = { p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0, games: [], home: [0, 0, 0], away: [0, 0, 0], o25: 0, btts: 0, cs: 0, fts: 0, shots: 0, sot: 0, corners: 0, cards: 0, shA: 0, sotA: 0, cornA: 0, yel: 0, red: 0, ht: [0, 0], nh: 0, htW: 0, htD: 0, htL: 0, htft: {}, comeW: 0, comeD: 0, behind: 0, ahead: 0, leadLost: 0, leadDrew: 0, g2: [0, 0], both: 0, o05h: 0, o15: 0, o35: 0, wtn: 0, w2: 0, l2: 0, c95: 0, c105: 0, crd45: 0, nc: 0, nk: 0, nodds: 0, pW: 0, pX: 0, pL: 0, nou: 0, pO: 0, pU: 0, favN: 0, favW: 0, dogN: 0, dogW: 0, dogNL: 0, mor2h: 0, mor1h: 0 };
   for (const m of L.filter(m => m.h === t || m.a === t)) {
     const home = m.h === t, gf = home ? m.hg : m.ag, ga = home ? m.ag : m.hg, r = gf > ga ? 'W' : gf === ga ? 'D' : 'L';
     s.p++; s.gf += gf; s.ga += ga; s[{ W: 'w', D: 'd', L: 'l' }[r]]++; s.pts += { W: 3, D: 1, L: 0 }[r];
@@ -66,6 +66,23 @@ function teamStats(t, L) {
     const g = (a, b) => (home ? m[a] : m[b]) ?? 0;
     s.shots += g('hs', 'as'); s.sot += g('hst', 'ast'); s.corners += g('hc', 'ac'); s.cards += g('hy', 'ay') + 2 * g('hr', 'ar'); s.yel += g('hy', 'ay'); s.red += g('hr', 'ar');
     s.shA += g('as', 'hs'); s.sotA += g('ast', 'hst'); s.cornA += g('ac', 'hc');
+    const T = m.hg + m.ag; s.o15 += T > 1; s.o35 += T > 3; s.wtn += r === 'W' && ga === 0; s.w2 += gf - ga >= 2; s.l2 += ga - gf >= 2;
+    if (m.hh != null && m.ha != null) {
+      const hf = home ? m.hh : m.ha, ha = home ? m.ha : m.hh, hr = hf > ha ? 'W' : hf === ha ? 'D' : 'L';
+      s.nh++; s['ht' + hr]++; const k = { W: '1', D: 'X', L: '2' }[hr] + '/' + { W: '1', D: 'X', L: '2' }[r]; s.htft[k] = (s.htft[k] || 0) + 1;
+      if (hr === 'L') { s.behind++; s.comeW += r === 'W'; s.comeD += r === 'D'; }
+      if (hr === 'W') { s.ahead++; s.leadLost += r === 'L'; s.leadDrew += r === 'D'; }
+      s.g2[0] += gf - hf; s.g2[1] += ga - ha; s.both += hf > 0 && gf - hf > 0; s.o05h += m.hh + m.ha > 0;
+      const h1 = m.hh + m.ha, h2 = T - h1; s.mor2h += h2 > h1; s.mor1h += h1 > h2;
+    }
+    if (m.hc != null && m.ac != null) { s.nc++; s.c95 += m.hc + m.ac > 9.5; s.c105 += m.hc + m.ac > 10.5; }
+    if (m.hy != null && m.ay != null) { s.nk++; s.crd45 += m.hy + m.ay + (m.hr ?? 0) + (m.ar ?? 0) > 4.5; }
+    if (m.odds) {
+      const [oh, od, oa] = m.odds, ow = home ? oh : oa, ol = home ? oa : oh;
+      s.nodds++; s.pW += r === 'W' ? ow - 1 : -1; s.pX += r === 'D' ? od - 1 : -1; s.pL += r === 'L' ? ol - 1 : -1;
+      if (ow < ol) { s.favN++; s.favW += r === 'W'; } else { s.dogN++; s.dogW += r === 'W'; s.dogNL += r !== 'L'; }
+    }
+    if (m.ou[0] > 1 && m.ou[1] > 1) { s.nou++; s.pO += T > 2 ? m.ou[0] - 1 : -1; s.pU += T < 3 ? m.ou[1] - 1 : -1; }
     s.ht[0] += (home ? m.hh : m.ha) ?? 0; s.ht[1] += (home ? m.ha : m.hh) ?? 0;
   }
   s.games.reverse();
@@ -118,33 +135,58 @@ ${[...bc, ...ld].map(j => `<script type="application/ld+json">${JSON.stringify(j
 // ---------- κατατάξεις στατιστικών ομάδων
 const PG = k => s => (s.p ? s[k] / s.p : null), PCT = k => s => (s.p ? s[k] / s.p : null);
 const STATS = [
-  { slug: 'gkol', name: 'Γκολ ανά αγώνα', h: 'Επιθέσεις: γκολ ανά αγώνα', v: PG('gf'), d: 2, tot: s => `${s.gf} γκολ`, about: 'Πόσα γκολ σκοράρει κατά μέσο όρο κάθε ομάδα σε έναν αγώνα πρωταθλήματος.' },
-  { slug: 'gkol-kata', name: 'Γκολ που δέχεται', h: 'Άμυνες: γκολ που δέχεται ανά αγώνα', v: PG('ga'), d: 2, asc: true, tot: s => `${s.ga} γκολ`, about: 'Πόσα γκολ δέχεται κατά μέσο όρο κάθε ομάδα. Η καλύτερη άμυνα είναι πρώτη.' },
-  { slug: 'anepafi-estia', name: 'Ανέπαφη εστία', h: 'Αγώνες με ανέπαφη εστία', v: PCT('cs'), d: 0, tot: s => `${s.cs} ${s.cs === 1 ? 'αγώνας' : 'αγώνες'}`, about: 'Σε τι ποσοστό των αγώνων της κάθε ομάδα δεν δέχτηκε γκολ (clean sheets).' },
-  { slug: 'over-2-5', name: 'Over 2,5', h: 'Over 2,5 γκολ ανά ομάδα', v: PCT('o25'), d: 0, tot: s => `${s.o25}/${s.p}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας μπήκαν 3 ή περισσότερα γκολ.' },
-  { slug: 'goal-goal', name: 'Γκολ-γκολ', h: 'Γκολ-γκολ: σκόραραν και οι δύο ομάδες', v: PCT('btts'), d: 0, tot: s => `${s.btts}/${s.p}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας σκόραραν και οι δύο αντίπαλοι (Γκολ-Γκολ / BTTS).' },
-  { slug: 'gkol-imixrono', name: 'Γκολ στο 1ο ημίχρονο', h: 'Γκολ στο πρώτο ημίχρονο', v: s => (s.p ? s.ht[0] / s.p : null), d: 2, tot: s => `${s.ht[0]} γκολ (δέχτηκε ${s.ht[1]})`, about: 'Πόσα γκολ σκοράρει κάθε ομάδα στο πρώτο ημίχρονο ανά αγώνα.' },
-  { slug: 'sout', name: 'Σουτ ανά αγώνα', h: 'Σουτ ανά αγώνα', v: PG('shots'), d: 1, tot: s => `${s.shots} σουτ`, about: 'Πόσα σουτ επιχειρεί κάθε ομάδα κατά μέσο όρο σε έναν αγώνα.' },
-  { slug: 'sout-estia', name: 'Σουτ στην εστία', h: 'Σουτ στην εστία ανά αγώνα', v: PG('sot'), d: 1, tot: s => `${s.sot} σουτ στην εστία`, about: 'Πόσα σουτ στο τέρμα (εντός εστίας) έχει κάθε ομάδα ανά αγώνα.' },
-  { slug: 'eustoxia', name: 'Ευστοχία σουτ', h: 'Ευστοχία: σουτ στην εστία προς σύνολο σουτ', v: s => (s.shots ? s.sot / s.shots : null), d: 0, tot: s => `${s.sot}/${s.shots}`, about: 'Τι ποσοστό των σουτ κάθε ομάδας βρίσκει τον στόχο.' },
-  { slug: 'sout-antipalon', name: 'Σουτ που δέχεται', h: 'Σουτ που επιτρέπει στους αντιπάλους', v: PG('shA'), d: 1, asc: true, tot: s => `${s.shA} σουτ`, about: 'Πόσα σουτ αφήνει κάθε ομάδα να κάνουν οι αντίπαλοί της ανά αγώνα. Πρώτη η ομάδα που επιτρέπει τα λιγότερα.' },
-  { slug: 'korner', name: 'Κόρνερ ανά αγώνα', h: 'Κόρνερ ανά αγώνα', v: PG('corners'), d: 1, tot: s => `${s.corners} κόρνερ`, about: 'Πόσα κόρνερ κερδίζει κάθε ομάδα κατά μέσο όρο σε έναν αγώνα.' },
-  { slug: 'korner-kata', name: 'Κόρνερ που δέχεται', h: 'Κόρνερ που δίνει στους αντιπάλους', v: PG('cornA'), d: 1, asc: true, tot: s => `${s.cornA} κόρνερ`, about: 'Πόσα κόρνερ παραχωρεί κάθε ομάδα ανά αγώνα. Πρώτη η ομάδα που δίνει τα λιγότερα.' },
-  { slug: 'synolika-korner', name: 'Συνολικά κόρνερ αγώνα', h: 'Συνολικά κόρνερ στους αγώνες κάθε ομάδας', v: s => (s.p ? (s.corners + s.cornA) / s.p : null), d: 1, tot: s => `${s.corners + s.cornA} κόρνερ`, about: 'Πόσα κόρνερ (και των δύο ομάδων) γίνονται κατά μέσο όρο στους αγώνες κάθε ομάδας. Χρήσιμο για τις αγορές συνόλου κόρνερ.' },
-  { slug: 'kitrines', name: 'Κίτρινες κάρτες', h: 'Κίτρινες κάρτες ανά αγώνα', v: PG('yel'), d: 1, tot: s => `${s.yel} κίτρινες`, about: 'Πόσες κίτρινες κάρτες δέχεται κάθε ομάδα κατά μέσο όρο ανά αγώνα.' },
-  { slug: 'kokkines', name: 'Κόκκινες κάρτες', h: 'Κόκκινες κάρτες', v: s => (s.p ? s.red : null), d: 0, int: true, tot: s => `σε ${s.p} αγώνες`, about: 'Πόσες κόκκινες κάρτες (και δεύτερες κίτρινες) έχει δεχτεί κάθε ομάδα στη σεζόν.' },
-  { slug: 'edra', name: 'Βαθμοί εντός έδρας', h: 'Βαθμοί ανά αγώνα εντός έδρας', v: s => { const n = s.home[0] + s.home[1] + s.home[2]; return n ? (3 * s.home[0] + s.home[1]) / n : null; }, d: 2, tot: s => `${s.home.join('-')} (Ν-Ι-Η)`, about: 'Πόσους βαθμούς παίρνει κάθε ομάδα ανά αγώνα στο γήπεδό της.' },
-  { slug: 'ektos-edras', name: 'Βαθμοί εκτός έδρας', h: 'Βαθμοί ανά αγώνα εκτός έδρας', v: s => { const n = s.away[0] + s.away[1] + s.away[2]; return n ? (3 * s.away[0] + s.away[1]) / n : null; }, d: 2, tot: s => `${s.away.join('-')} (Ν-Ι-Η)`, about: 'Πόσους βαθμούς παίρνει κάθε ομάδα ανά αγώνα μακριά από την έδρα της.' },
-  { slug: 'forma', name: 'Φόρμα 5 αγώνων', h: 'Φόρμα: βαθμοί στους 5 τελευταίους αγώνες', v: s => (s.p ? s.games.slice(0, 5).reduce((a, g) => a + { W: 3, D: 1, L: 0 }[g.r], 0) : null), d: 0, int: true, tot: s => formHtml(s.games.slice(0, 5).map(g => g.r)), raw: true, about: 'Πόσους βαθμούς μάζεψε κάθε ομάδα στους πέντε πιο πρόσφατους αγώνες της (μέγιστο 15).' },
+  { g: 'Γκολ', slug: 'gkol', name: 'Γκολ ανά αγώνα', h: 'Επιθέσεις: γκολ ανά αγώνα', v: PG('gf'), d: 2, tot: s => `${s.gf} γκολ`, about: 'Πόσα γκολ σκοράρει κατά μέσο όρο κάθε ομάδα σε έναν αγώνα πρωταθλήματος.' },
+  { g: 'Γκολ', slug: 'gkol-kata', name: 'Γκολ που δέχεται', h: 'Άμυνες: γκολ που δέχεται ανά αγώνα', v: PG('ga'), d: 2, asc: true, tot: s => `${s.ga} γκολ`, about: 'Πόσα γκολ δέχεται κατά μέσο όρο κάθε ομάδα. Η καλύτερη άμυνα είναι πρώτη.' },
+  { g: 'Γκολ', slug: 'anepafi-estia', name: 'Ανέπαφη εστία', h: 'Αγώνες με ανέπαφη εστία', v: PCT('cs'), d: 0, tot: s => `${s.cs} ${s.cs === 1 ? 'αγώνας' : 'αγώνες'}`, about: 'Σε τι ποσοστό των αγώνων της κάθε ομάδα δεν δέχτηκε γκολ (clean sheets).' },
+  { g: 'Γκολ', slug: 'over-2-5', name: 'Over 2,5', h: 'Over 2,5 γκολ ανά ομάδα', v: PCT('o25'), d: 0, tot: s => `${s.o25}/${s.p}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας μπήκαν 3 ή περισσότερα γκολ.' },
+  { g: 'Γκολ', slug: 'goal-goal', name: 'Γκολ-γκολ', h: 'Γκολ-γκολ: σκόραραν και οι δύο ομάδες', v: PCT('btts'), d: 0, tot: s => `${s.btts}/${s.p}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας σκόραραν και οι δύο αντίπαλοι (Γκολ-Γκολ / BTTS).' },
+  { g: 'Ημίχρονα', slug: 'gkol-imixrono', name: 'Γκολ στο 1ο ημίχρονο', h: 'Γκολ στο πρώτο ημίχρονο', v: s => (s.p ? s.ht[0] / s.p : null), d: 2, tot: s => `${s.ht[0]} γκολ (δέχτηκε ${s.ht[1]})`, about: 'Πόσα γκολ σκοράρει κάθε ομάδα στο πρώτο ημίχρονο ανά αγώνα.' },
+  { g: 'Σουτ', slug: 'sout', name: 'Σουτ ανά αγώνα', h: 'Σουτ ανά αγώνα', v: PG('shots'), d: 1, tot: s => `${s.shots} σουτ`, about: 'Πόσα σουτ επιχειρεί κάθε ομάδα κατά μέσο όρο σε έναν αγώνα.' },
+  { g: 'Σουτ', slug: 'sout-estia', name: 'Σουτ στην εστία', h: 'Σουτ στην εστία ανά αγώνα', v: PG('sot'), d: 1, tot: s => `${s.sot} σουτ στην εστία`, about: 'Πόσα σουτ στο τέρμα (εντός εστίας) έχει κάθε ομάδα ανά αγώνα.' },
+  { g: 'Σουτ', slug: 'eustoxia', name: 'Ευστοχία σουτ', h: 'Ευστοχία: σουτ στην εστία προς σύνολο σουτ', v: s => (s.shots ? s.sot / s.shots : null), d: 0, tot: s => `${s.sot}/${s.shots}`, about: 'Τι ποσοστό των σουτ κάθε ομάδας βρίσκει τον στόχο.' },
+  { g: 'Σουτ', slug: 'sout-antipalon', name: 'Σουτ που δέχεται', h: 'Σουτ που επιτρέπει στους αντιπάλους', v: PG('shA'), d: 1, asc: true, tot: s => `${s.shA} σουτ`, about: 'Πόσα σουτ αφήνει κάθε ομάδα να κάνουν οι αντίπαλοί της ανά αγώνα. Πρώτη η ομάδα που επιτρέπει τα λιγότερα.' },
+  { g: 'Κόρνερ', slug: 'korner', name: 'Κόρνερ ανά αγώνα', h: 'Κόρνερ ανά αγώνα', v: PG('corners'), d: 1, tot: s => `${s.corners} κόρνερ`, about: 'Πόσα κόρνερ κερδίζει κάθε ομάδα κατά μέσο όρο σε έναν αγώνα.' },
+  { g: 'Κόρνερ', slug: 'korner-kata', name: 'Κόρνερ που δέχεται', h: 'Κόρνερ που δίνει στους αντιπάλους', v: PG('cornA'), d: 1, asc: true, tot: s => `${s.cornA} κόρνερ`, about: 'Πόσα κόρνερ παραχωρεί κάθε ομάδα ανά αγώνα. Πρώτη η ομάδα που δίνει τα λιγότερα.' },
+  { g: 'Κόρνερ', slug: 'synolika-korner', name: 'Συνολικά κόρνερ αγώνα', h: 'Συνολικά κόρνερ στους αγώνες κάθε ομάδας', v: s => (s.p ? (s.corners + s.cornA) / s.p : null), d: 1, tot: s => `${s.corners + s.cornA} κόρνερ`, about: 'Πόσα κόρνερ (και των δύο ομάδων) γίνονται κατά μέσο όρο στους αγώνες κάθε ομάδας. Χρήσιμο για τις αγορές συνόλου κόρνερ.' },
+  { g: 'Κάρτες', slug: 'kitrines', name: 'Κίτρινες κάρτες', h: 'Κίτρινες κάρτες ανά αγώνα', v: PG('yel'), d: 1, tot: s => `${s.yel} κίτρινες`, about: 'Πόσες κίτρινες κάρτες δέχεται κάθε ομάδα κατά μέσο όρο ανά αγώνα.' },
+  { g: 'Κάρτες', slug: 'kokkines', name: 'Κόκκινες κάρτες', h: 'Κόκκινες κάρτες', v: s => (s.p ? s.red : null), d: 0, int: true, tot: s => `σε ${s.p} αγώνες`, about: 'Πόσες κόκκινες κάρτες (και δεύτερες κίτρινες) έχει δεχτεί κάθε ομάδα στη σεζόν.' },
+  { g: 'Βαθμοί', slug: 'edra', name: 'Βαθμοί εντός έδρας', h: 'Βαθμοί ανά αγώνα εντός έδρας', v: s => { const n = s.home[0] + s.home[1] + s.home[2]; return n ? (3 * s.home[0] + s.home[1]) / n : null; }, d: 2, tot: s => `${s.home.join('-')} (Ν-Ι-Η)`, about: 'Πόσους βαθμούς παίρνει κάθε ομάδα ανά αγώνα στο γήπεδό της.' },
+  { g: 'Βαθμοί', slug: 'ektos-edras', name: 'Βαθμοί εκτός έδρας', h: 'Βαθμοί ανά αγώνα εκτός έδρας', v: s => { const n = s.away[0] + s.away[1] + s.away[2]; return n ? (3 * s.away[0] + s.away[1]) / n : null; }, d: 2, tot: s => `${s.away.join('-')} (Ν-Ι-Η)`, about: 'Πόσους βαθμούς παίρνει κάθε ομάδα ανά αγώνα μακριά από την έδρα της.' },
+  { g: 'Βαθμοί', slug: 'forma', name: 'Φόρμα 5 αγώνων', h: 'Φόρμα: βαθμοί στους 5 τελευταίους αγώνες', v: s => (s.p ? s.games.slice(0, 5).reduce((a, g) => a + { W: 3, D: 1, L: 0 }[g.r], 0) : null), d: 0, int: true, tot: s => formHtml(s.games.slice(0, 5).map(g => g.r)), raw: true, about: 'Πόσους βαθμούς μάζεψε κάθε ομάδα στους πέντε πιο πρόσφατους αγώνες της (μέγιστο 15).' },
+  { g: 'Ημίχρονα', slug: 'niki-imixrono', name: 'Νίκη στο ημίχρονο', h: 'Προηγείται στο ημίχρονο', v: s => (s.nh ? s.htW / s.nh : null), d: 0, tot: s => `${s.htW}/${s.nh}`, about: 'Σε τι ποσοστό των αγώνων της κάθε ομάδα προηγείται στο τέλος του πρώτου ημιχρόνου (αγορά «Ημίχρονο: 1/2»).' },
+  { g: 'Ημίχρονα', slug: 'isopalia-imixrono', name: 'Ισοπαλία στο ημίχρονο', h: 'Ισοπαλία στο ημίχρονο', v: s => (s.nh ? s.htD / s.nh : null), d: 0, tot: s => `${s.htD}/${s.nh}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας το πρώτο ημίχρονο λήγει ισόπαλο (αγορά «Ημίχρονο: Χ»).' },
+  { g: 'Ημίχρονα', slug: 'gkol-2o-imixrono', name: 'Γκολ στο 2ο ημίχρονο', h: 'Γκολ στο δεύτερο ημίχρονο', v: s => (s.nh ? s.g2[0] / s.nh : null), d: 2, tot: s => `${s.g2[0]} γκολ (δέχτηκε ${s.g2[1]})`, about: 'Πόσα γκολ σκοράρει κάθε ομάδα στο δεύτερο ημίχρονο ανά αγώνα.' },
+  { g: 'Ημίχρονα', slug: 'over-0-5-imixrono', name: 'Over 0,5 στο ημίχρονο', h: 'Γκολ στο πρώτο ημίχρονο (Over 0,5 ημιχρόνου)', v: s => (s.nh ? s.o05h / s.nh : null), d: 0, tot: s => `${s.o05h}/${s.nh}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας μπήκε τουλάχιστον ένα γκολ στο πρώτο ημίχρονο.' },
+  { g: 'Ημίχρονα', slug: 'perissotera-gkol-2o', name: 'Περισσότερα γκολ στο 2ο', h: 'Ημίχρονο με τα περισσότερα γκολ: το δεύτερο', v: s => (s.nh ? s.mor2h / s.nh : null), d: 0, tot: s => `${s.mor2h}/${s.nh} (1ο: ${s.mor1h})`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας το δεύτερο ημίχρονο είχε περισσότερα γκολ από το πρώτο (αγορά «Ημίχρονο με τα περισσότερα γκολ»).' },
+  { g: 'Ημίχρονα', slug: 'skorarei-kai-sta-dyo', name: 'Σκοράρει και στα 2 ημίχρονα', h: 'Σκοράρει και στα δύο ημίχρονα', v: s => (s.nh ? s.both / s.nh : null), d: 0, tot: s => `${s.both}/${s.nh}`, about: 'Σε τι ποσοστό των αγώνων της κάθε ομάδα σκόραρε και στο πρώτο και στο δεύτερο ημίχρονο.' },
+  { g: 'Ανατροπές', slug: 'anatropes', name: 'Ανατροπές', h: 'Ανατροπές: από χαμένη στο ημίχρονο σε νίκη', v: s => (s.nh ? s.comeW : null), d: 0, int: true, tot: s => `${s.comeW} ${s.comeW === 1 ? 'νίκη' : 'νίκες'}, ${s.comeD} ${s.comeD === 1 ? 'ισοπαλία' : 'ισοπαλίες'} σε ${s.behind} αγώνες που έχανε στο ημίχρονο`, about: 'Πόσες φορές κάθε ομάδα έχανε στο ημίχρονο και τελικά κέρδισε (αγορά Ημίχρονο/Τελικό 2/1 ή 1/2).' },
+  { g: 'Ανατροπές', slug: 'vathmoi-apo-meion', name: 'Βαθμοί από μειονέκτημα', h: 'Βαθμοί όταν έχανε στο ημίχρονο', v: s => (s.behind ? (3 * s.comeW + s.comeD) / s.behind : null), d: 2, tot: s => `${s.comeW}-${s.comeD}-${s.behind - s.comeW - s.comeD} σε ${s.behind}`, about: 'Πόσους βαθμούς ανά αγώνα παίρνει κάθε ομάδα όταν πηγαίνει στα αποδυτήρια χάνοντας. Δείχνει ποιες ομάδες «γυρίζουν» τα ματς.' },
+  { g: 'Ανατροπές', slug: 'xamena-provadismata', name: 'Χαμένα προβαδίσματα', h: 'Χαμένα προβαδίσματα: προηγούνταν στο ημίχρονο αλλά δεν κέρδισαν', v: s => (s.nh ? s.leadLost + s.leadDrew : null), d: 0, int: true, tot: s => `${s.leadDrew} ${s.leadDrew === 1 ? 'ισοπαλία' : 'ισοπαλίες'}, ${s.leadLost} ${s.leadLost === 1 ? 'ήττα' : 'ήττες'} σε ${s.ahead} αγώνες που προηγούνταν`, about: 'Πόσες φορές κάθε ομάδα προηγούνταν στο ημίχρονο αλλά δεν κράτησε τη νίκη.' },
+  { g: 'Ανατροπές', slug: 'kratame-provadisma', name: 'Κρατάει το προβάδισμα', h: 'Νίκες όταν προηγείται στο ημίχρονο', v: s => (s.ahead ? (s.ahead - s.leadLost - s.leadDrew) / s.ahead : null), d: 0, tot: s => `${s.ahead - s.leadLost - s.leadDrew}/${s.ahead}`, about: 'Τι ποσοστό των αγώνων στους οποίους προηγείται στο ημίχρονο καταλήγει σε νίκη για κάθε ομάδα (Ημίχρονο/Τελικό 1/1 ή 2/2).' },
+  { g: 'Γκολ', slug: 'over-1-5', name: 'Over 1,5', h: 'Over 1,5 γκολ ανά ομάδα', v: PCT('o15'), d: 0, tot: s => `${s.o15}/${s.p}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας μπήκαν 2 ή περισσότερα γκολ.' },
+  { g: 'Γκολ', slug: 'over-3-5', name: 'Over 3,5', h: 'Over 3,5 γκολ ανά ομάδα', v: PCT('o35'), d: 0, tot: s => `${s.o35}/${s.p}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας μπήκαν 4 ή περισσότερα γκολ.' },
+  { g: 'Γκολ', slug: 'niki-xoris-gkol-kata', name: 'Νίκη χωρίς παθητικό', h: 'Νίκη χωρίς να δεχτεί γκολ (win to nil)', v: PCT('wtn'), d: 0, tot: s => `${s.wtn}/${s.p}`, about: 'Σε τι ποσοστό των αγώνων της κάθε ομάδα κέρδισε χωρίς να δεχτεί γκολ.' },
+  { g: 'Γκολ', slug: 'niki-me-2', name: 'Νίκη με 2+ γκολ διαφορά', h: 'Νίκες με διαφορά 2 ή περισσότερων γκολ (χάντικαπ -1,5)', v: PCT('w2'), d: 0, tot: s => `${s.w2}/${s.p}`, about: 'Σε τι ποσοστό των αγώνων της κάθε ομάδα κέρδισε με τουλάχιστον δύο γκολ διαφορά. Αντιστοιχεί στο ασιατικό χάντικαπ -1,5.' },
+  { g: 'Κόρνερ', slug: 'over-9-5-korner', name: 'Over 9,5 κόρνερ', h: 'Αγώνες με 10+ κόρνερ', v: s => (s.nc ? s.c95 / s.nc : null), d: 0, tot: s => `${s.c95}/${s.nc}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας έγιναν συνολικά 10 ή περισσότερα κόρνερ.' },
+  { g: 'Κάρτες', slug: 'over-4-5-kartes', name: 'Over 4,5 κάρτες', h: 'Αγώνες με 5+ κάρτες', v: s => (s.nk ? s.crd45 / s.nk : null), d: 0, tot: s => `${s.crd45}/${s.nk}`, about: 'Σε τι ποσοστό των αγώνων κάθε ομάδας δόθηκαν συνολικά 5 ή περισσότερες κάρτες (κίτρινες και κόκκινες, και των δύο ομάδων).' },
+  { g: 'Κέρδος', slug: 'kerdos-niki', name: 'Κέρδος: νίκη ομάδας', h: 'Κέρδος αν πόνταρες 1 € στη νίκη της σε κάθε αγώνα', v: s => (s.nodds ? s.pW : null), d: 2, eur: true, tot: s => `σε ${s.nodds} αγώνες · ROI ${s.nodds ? (s.pW > 0 ? '+' : '') + pc(s.pW / s.nodds) : '–'}`, about: 'Πόσα ευρώ θα είχες κερδίσει ή χάσει αν πόνταρες 1 € στη νίκη κάθε ομάδας σε κάθε αγώνα της, στις μέσες αποδόσεις κλεισίματος. Θετικό σημαίνει ότι η αγορά υποτίμησε την ομάδα.' },
+  { g: 'Κέρδος', slug: 'kerdos-isopalia', name: 'Κέρδος: ισοπαλία', h: 'Κέρδος αν πόνταρες 1 € στην ισοπαλία σε κάθε αγώνα της', v: s => (s.nodds ? s.pX : null), d: 2, eur: true, tot: s => `${s.d} ισοπαλίες σε ${s.nodds} αγώνες`, about: 'Πόσα ευρώ θα είχες κερδίσει ή χάσει πονταροντας 1 € στην ισοπαλία σε κάθε αγώνα της ομάδας, στις μέσες αποδόσεις κλεισίματος.' },
+  { g: 'Κέρδος', slug: 'kerdos-over', name: 'Κέρδος: Over 2,5', h: 'Κέρδος αν πόνταρες 1 € στο Over 2,5 σε κάθε αγώνα της', v: s => (s.nou ? s.pO : null), d: 2, eur: true, tot: s => `σε ${s.nou} αγώνες`, about: 'Πόσα ευρώ θα είχες κερδίσει ή χάσει πονταροντας 1 € στο Over 2,5 σε κάθε αγώνα της ομάδας, στις μέσες αποδόσεις κλεισίματος.' },
+  { g: 'Κέρδος', slug: 'kerdos-under', name: 'Κέρδος: Under 2,5', h: 'Κέρδος αν πόνταρες 1 € στο Under 2,5 σε κάθε αγώνα της', v: s => (s.nou ? s.pU : null), d: 2, eur: true, tot: s => `σε ${s.nou} αγώνες`, about: 'Πόσα ευρώ θα είχες κερδίσει ή χάσει πονταροντας 1 € στο Under 2,5 σε κάθε αγώνα της ομάδας, στις μέσες αποδόσεις κλεισίματος.' },
+  { g: 'Κέρδος', slug: 'favori', name: 'Νίκες ως φαβορί', h: 'Πόσο συχνά κερδίζει όταν είναι φαβορί', v: s => (s.favN ? s.favW / s.favN : null), d: 0, tot: s => `${s.favW}/${s.favN}`, about: 'Σε τι ποσοστό των αγώνων όπου η αγορά την είχε φαβορί κέρδισε κάθε ομάδα.' },
+  { g: 'Κέρδος', slug: 'aoutsaider', name: 'Αήττητη ως αουτσάιντερ', h: 'Αποτελέσματα όταν δεν είναι φαβορί (διπλή ευκαιρία)', v: s => (s.dogN ? s.dogNL / s.dogN : null), d: 0, tot: s => `${s.dogW} νίκες, ${s.dogNL - s.dogW} ισοπαλίες σε ${s.dogN}`, about: 'Σε τι ποσοστό των αγώνων όπου η αγορά δεν την είχε φαβορί κάθε ομάδα απέφυγε την ήττα.' },
 ];
-const sval = (st, v) => (v == null ? '–' : st.int ? String(v) : st.d === 0 && !st.int ? pc(v) : v.toFixed(st.d).replace('.', ','));
+const sval = (st, v) => (v == null ? '–' : st.eur ? (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + ' €' : st.int ? String(v) : st.d === 0 && !st.int ? pc(v) : v.toFixed(st.d).replace('.', ','));
 const RANK = Object.fromEntries(STATS.map(st => {
   const L = TEAMS.map(t => ({ t, s: ST[t].cur, v: st.v(ST[t].cur) })).filter(r => r.v != null).sort((a, b) => (st.asc ? a.v - b.v : b.v - a.v) || grName(a.t).localeCompare(grName(b.t)));
   L.forEach((r, i) => { r.pos = i && L[i - 1].v === r.v ? L[i - 1].pos : i + 1; });
   return [st.slug, L];
 }));
+const GROUPS = ['Γκολ', 'Ημίχρονα', 'Ανατροπές', 'Κέρδος', 'Κόρνερ', 'Κάρτες', 'Σουτ', 'Βαθμοί'];
+const GDESC = { 'Κέρδος': 'Τι θα είχες κερδίσει ή χάσει πονταροντας 1 € σε κάθε αγώνα κάθε ομάδας, στις μέσες αποδόσεις κλεισίματος. Οι παλιές αποδόσεις δεν εγγυώνται το μέλλον.', 'Ανατροπές': 'Από το σκορ ημιχρόνου και το τελικό: ποιος γυρίζει τα ματς και ποιος χάνει προβαδίσματα.' };
+const gid = g => ({ 'Γκολ': 'gkol', 'Ημίχρονα': 'imixrona', 'Ανατροπές': 'anatropes', 'Κέρδος': 'kerdos', 'Κόρνερ': 'korner', 'Κάρτες': 'kartes', 'Σουτ': 'sout', 'Βαθμοί': 'vathmoi' }[g]);
 const statUrl = st => U(`statistika/${st.slug}/`);
-const statBars = (st, L) => { const mx = Math.max(...L.map(r => r.v)) || 1; return `<div class="rows">${L.map(r => `<div class="row"><span>${r.pos}. ${tlink(r.t)}</span><div class="bar"><i style="width:${(100 * r.v / mx).toFixed(0)}%"></i></div><span class="v">${sval(st, r.v)}</span></div>`).join('')}</div>`; };
+const statBars = (st, L) => { const mx = Math.max(...L.map(r => Math.abs(r.v))) || 1; return `<div class="rows">${L.map(r => `<div class="row"><span>${r.pos}. ${tlink(r.t)}</span><div class="bar"><i style="width:${(100 * Math.abs(r.v) / mx).toFixed(0)}%${r.v < 0 ? ';background:#c8402f' : ''}"></i></div><span class="v">${sval(st, r.v)}</span></div>`).join('')}</div>`; };
 
 // ---------- σελίδες
 const fxRow = f => `<a class="fx" href="${U(matchPath(f))}"><div class="when"><b>${dShort(f.date)}</b>${esc(f.time)}</div><div class="teams"><span>${esc(grName(f.h))}</span><span>${esc(grName(f.a))}</span></div><div class="prob">${strip(f.p)}<div class="legend"><span>1</span><span>X</span><span>2</span></div></div><div class="score">${f.pred.top[0][0]}<small>πιθανότερο σκορ</small></div></a>`;
@@ -213,6 +255,8 @@ ${next ? `<p class="note" style="font-size:15px">Επόμενος αγώνας: 
 <section class="band"><div class="wrap duo"><div><p class="prose">${esc(summary)}</p><h2>Ανά αγώνα</h2><div class="scroll"><table><thead><tr><th class="l"></th><th>${seasonLabel(cur)}</th><th>${seasonLabel(prevCode)}</th></tr></thead><tbody>${keys.map(([l, k]) => `<tr><td class="l">${l}</td><td><b>${per(s, k)}</b></td><td>${pv.p ? per(pv, k) : '–'}</td></tr>`).join('')}</tbody></table></div>
 <h3>Συχνότητες</h3><div class="rows">${pcts.map(([l, v]) => `<div class="row"><span>${l}</span><div class="bar"><i style="width:${s.p ? (100 * v / s.p).toFixed(0) : 0}%"></i></div><span class="v">${s.p ? pc(v / s.p) : '–'}</span></div>`).join('')}</div>
 <p class="note">Πρώτο ημίχρονο: ${s.ht[0]}:${s.ht[1]} γκολ.</p>
+<h3>Ημίχρονο / Τελικό</h3>${s.nh ? `<div class="scroll"><table class="htft"><thead><tr><th class="l">Ημίχρονο ↓ Τελικό →</th><th>1</th><th>Χ</th><th>2</th></tr></thead><tbody>${['1', 'X', '2'].map(a => `<tr><td class="l">${{ 1: 'Προηγείται', X: 'Ισοπαλία', 2: 'Χάνει' }[a]}</td>${['1', 'X', '2'].map(b => `<td>${s.htft[a + '/' + b] || 0}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="note">1 = νίκη της ομάδας, 2 = νίκη του αντιπάλου, από τη σκοπιά της ομάδας. Ανατροπές: ${s.comeW} · χαμένα προβαδίσματα: ${s.leadLost + s.leadDrew}.</p>` : ''}
+${s.nodds ? `<h3>Αν πόνταρες 1 € σε κάθε αγώνα</h3><div class="scroll"><table><tbody>${[['Νίκη της', s.pW, s.nodds], ['Ισοπαλία', s.pX, s.nodds], ['Ήττα της', s.pL, s.nodds], ['Over 2,5', s.pO, s.nou], ['Under 2,5', s.pU, s.nou]].map(([l, v, k]) => `<tr><td class="l">${l}</td><td class="${v >= 0 ? 'pos-v' : 'neg-v'}"><b>${v > 0 ? '+' : ''}${v.toFixed(2).replace('.', ',')} €</b></td><td>${k} αγ.</td></tr>`).join('')}</tbody></table></div><p class="note">Μέσες αποδόσεις κλεισίματος. Φαβορί σε ${s.favN} αγώνες, κέρδισε ${s.favW}.</p>` : ''}
 <h3>Θέση στα στατιστικά της λίγκας</h3><div class="scroll"><table><tbody>${STATS.map(st => { const r = RANK[st.slug].find(x => x.t === t); return r ? `<tr><td class="l"><a href="${statUrl(st)}">${st.name}</a></td><td>${sval(st, r.v)}</td><td>${r.pos}η</td></tr>` : ''; }).join('')}</tbody></table></div></div>
 <div><h2>Αγώνες σεζόν</h2><div class="scroll"><table><thead><tr><th class="l">Ημ/νία</th><th class="l">Αντίπαλος</th><th></th><th>Σκορ</th></tr></thead><tbody>${s.games.map(g => `<tr><td class="l">${dShort(g.m.date)}</td><td class="l team">${tlink(g.opp)}</td><td class="l">${g.home ? 'εντός' : 'εκτός'}</td><td class="sc ${g.r}"><a href="${U(matchPath(g.m))}">${g.m.hg}-${g.m.ag}</a></td></tr>`).join('')}</tbody></table></div></div></div></section>`,
   });
@@ -224,7 +268,7 @@ const eventLd = (m, extra = {}) => ({ '@context': 'https://schema.org', '@type':
 
 for (const f of FIX) {
   const A = ST[f.h]?.cur, B = ST[f.a]?.cur, nh = grName(f.h), na = grName(f.a);
-  const cmp = A?.p && B?.p ? [['Βαθμοί/αγώνα', A.pts / A.p, B.pts / B.p, 2], ['Γκολ υπέρ', A.gf / A.p, B.gf / B.p, 1], ['Γκολ κατά', A.ga / A.p, B.ga / B.p, 1], ['Σουτ στην εστία', A.sot / A.p, B.sot / B.p, 1], ['Κόρνερ', A.corners / A.p, B.corners / B.p, 1], ['Κάρτες', A.cards / A.p, B.cards / B.p, 1], ['Over 2,5', A.o25 / A.p, B.o25 / B.p, 0]] : [];
+  const cmp = A?.p && B?.p ? [['Βαθμοί/αγώνα', A.pts / A.p, B.pts / B.p, 2], ['Γκολ υπέρ', A.gf / A.p, B.gf / B.p, 1], ['Γκολ κατά', A.ga / A.p, B.ga / B.p, 1], ['Σουτ στην εστία', A.sot / A.p, B.sot / B.p, 1], ['Κόρνερ', A.corners / A.p, B.corners / B.p, 1], ['Κάρτες', A.cards / A.p, B.cards / B.p, 1], ['Over 1,5', A.o15 / A.p, B.o15 / B.p, 0], ['Over 2,5', A.o25 / A.p, B.o25 / B.p, 0], ['Γκολ-γκολ', A.btts / A.p, B.btts / B.p, 0], ['Ανέπαφη εστία', A.cs / A.p, B.cs / B.p, 0], ['Προηγείται στο ημίχρονο', A.nh ? A.htW / A.nh : 0, B.nh ? B.htW / B.nh : 0, 0], ['Ισοπαλία στο ημίχρονο', A.nh ? A.htD / A.nh : 0, B.nh ? B.htD / B.nh : 0, 0], ['Συνολικά κόρνερ αγώνα', (A.corners + A.cornA) / A.p, (B.corners + B.cornA) / B.p, 1], ['Over 4,5 κάρτες', A.nk ? A.crd45 / A.nk : 0, B.nk ? B.crd45 / B.nk : 0, 0]] : [];
   const fmt = (v, d) => (d === 0 ? pc(v) : v.toFixed(d).replace('.', ','));
   const fav = f.p[0] > f.p[2] ? nh : na;
   page(matchPath(f), {
@@ -261,12 +305,12 @@ ${mk ? `<p class="note">Πριν τον αγώνα η αγορά έδινε ${es
 
 
 page('statistika/', {
-  title: `Στατιστικά ομάδων Super League ${seasonLabel(cur)}: γκολ, σουτ, κόρνερ, κάρτες | ${NAME}`,
-  desc: `Κατατάξεις των ομάδων της Super League ${seasonLabel(cur)} σε γκολ, ανέπαφη εστία, over 2,5, γκολ-γκολ, σουτ, κόρνερ, κάρτες και φόρμα.`,
+  title: `Στοιχηματικά στατιστικά Super League ${seasonLabel(cur)}: ημίχρονο, ανατροπές, over, κόρνερ | ${NAME}`,
+  desc: `Στοιχηματικά στατιστικά ομάδων Super League ${seasonLabel(cur)}: over/under, γκολ-γκολ, ημίχρονο/τελικό, ανατροπές, κόρνερ, κάρτες και κέρδος ανά ομάδα.`,
   crumbs: [['Στατιστικά', 'statistika/']],
-  body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Στατιστικά ομάδων Super League ${seasonLabel(cur)}</h1><p class="sub">${STATS.length} κατατάξεις μετά από ${CUR.length} αγώνες. Πάτα μια κατηγορία για τον πλήρη πίνακα.</p>
-<nav class="chips" aria-label="Κατηγορίες">${STATS.map(st => `<a href="${statUrl(st)}">${st.name}</a>`).join('')}</nav></div></section>
-<section class="band"><div class="wrap scards">${STATS.map(st => `<div class="scard"><h2><a href="${statUrl(st)}">${st.name}</a></h2>${statBars(st, RANK[st.slug].slice(0, 5))}<a class="more" href="${statUrl(st)}">Όλες οι ομάδες →</a></div>`).join('')}</div></section>`,
+  body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Στοιχηματικά στατιστικά Super League ${seasonLabel(cur)}</h1><p class="sub">${STATS.length} κατατάξεις μετά από ${CUR.length} αγώνες. Πάτα μια κατηγορία για τον πλήρη πίνακα.</p>
+<nav class="chips" aria-label="Ομάδες κατηγοριών">${GROUPS.map(g => `<a href="#${gid(g)}">${g}</a>`).join('')}</nav></div></section>
+${GROUPS.map(g => `<section class="band" id="${gid(g)}"><div class="wrap"><h2>${g}</h2>${GDESC[g] ? `<p class="note">${GDESC[g]}</p>` : ''}<div class="scards">${STATS.filter(st => st.g === g).map(st => `<div class="scard"><h3><a href="${statUrl(st)}">${st.name}</a></h3>${statBars(st, RANK[st.slug].slice(0, 5))}<a class="more" href="${statUrl(st)}">Όλες οι ομάδες →</a></div>`).join('')}</div></div></section>`).join('')}`,
 });
 for (const st of STATS) {
   const L = RANK[st.slug], top = L[0];
