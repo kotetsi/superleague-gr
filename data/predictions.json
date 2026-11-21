@@ -1,0 +1,65 @@
+{
+ "2026-11-21-kalamata-aek": {
+  "r": 11,
+  "date": "2026-11-21",
+  "time": "17:30",
+  "h": "Kalamata",
+  "a": "AEK",
+  "pick": "2",
+  "score": "0-2"
+ },
+ "2026-11-22-levadeiakos-atromitos": {
+  "r": 11,
+  "date": "2026-11-22",
+  "time": "14:00",
+  "h": "Levadeiakos",
+  "a": "Atromitos",
+  "pick": "1",
+  "score": "1-0"
+ },
+ "2026-11-22-panaitolikos-volos": {
+  "r": 11,
+  "date": "2026-11-22",
+  "time": "15:00",
+  "h": "Panetolikos",
+  "a": "Volos NFC",
+  "pick": "1",
+  "score": "1-0"
+ },
+ "2026-11-22-panathinaikos-ofi": {
+  "r": 11,
+  "date": "2026-11-22",
+  "time": "15:30",
+  "h": "Panathinaikos",
+  "a": "OFI Crete",
+  "pick": "1",
+  "score": "2-0"
+ },
+ "2026-11-22-olympiakos-iraklis": {
+  "r": 11,
+  "date": "2026-11-22",
+  "time": "17:00",
+  "h": "Olympiakos",
+  "a": "Iraklis",
+  "pick": "1",
+  "score": "2-0"
+ },
+ "2026-11-22-paok-kifisia": {
+  "r": 11,
+  "date": "2026-11-22",
+  "time": "17:30",
+  "h": "PAOK",
+  "a": "Kifisia",
+  "pick": "1",
+  "score": "2-0"
+ },
+ "2026-11-23-asteras-tripolis-aris": {
+  "r": 11,
+  "date": "2026-11-23",
+  "time": "15:00",
+  "h": "Asteras Tripolis",
+  "a": "Aris",
+  "pick": "2",
+  "score": "0-1"
+ }
+}

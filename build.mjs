@@ -123,7 +123,7 @@ function page(p, { title, desc, body, ld = [], crumbs = [] }) {
 ${[...bc, ...ld].map(j => `<script type="application/ld+json">${JSON.stringify(j)}</script>`).join('\n')}
 </head><body>
 <header class="top"><div class="wrap"><a class="brand" href="${U('')}">Στατιστικά <b>Super League</b></a>
-<nav aria-label="Κύριο μενού"><a href="${U('')}">Αγωνιστική</a><a href="${U('vathmologia/')}">Βαθμολογία</a><a href="${U('programma/')}">Πρόγραμμα</a><a href="${U('apotelesmata/')}">Αποτελέσματα</a><a href="${U('omades/')}">Ομάδες</a><a href="${U('statistika/')}">Στατιστικά</a></nav></div></header>
+<nav aria-label="Κύριο μενού"><a href="${U('')}">Αγωνιστική</a><a href="${U('vathmologia/')}">Βαθμολογία</a><a href="${U('programma/')}">Πρόγραμμα</a><a href="${U('apotelesmata/')}">Αποτελέσματα</a><a href="${U('omades/')}">Ομάδες</a><a href="${U('statistika/')}">Στατιστικά</a><a href="${U('paixnidi/')}">Παιχνίδι</a></nav></div></header>
 <main>${crumbs.length ? body.replace('<!--crumbs-->', `<div class="crumbs"><a href="${U('')}">Αρχική</a>${crumbs.map(([n, u], i) => i === crumbs.length - 1 ? ` › ${esc(n)}` : ` › <a href="${U(u)}">${esc(n)}</a>`).join('')}</div>`) : body}</main>
 <footer class="band"><div class="wrap"><p>${NAME} · Super League ${seasonLabel(cur)} · ενημέρωση ${dLong(TODAY)}.</p>
 <p>Δεδομένα: football-data.co.uk. Τα ποσοστά 1-Χ-2 και over/under είναι οι μέσες αποδόσεις της αγοράς χωρίς γκανιότα· τα αναμενόμενα γκολ και τα πιθανότερα σκορ βγαίνουν από μοντέλο γκολ (Dixon-Coles). Δεν αποτελούν συμβουλή στοιχήματος. 21+ · Παίξε υπεύθυνα.</p></div></footer>
@@ -202,7 +202,7 @@ page('', {
   body: `<section class="hero band"><div class="wrap"><h1>${nextRound.length ? `${roundNo}η αγωνιστική: τι λένε τα νούμερα` : `Super League ${seasonLabel(cur)}`}</h1>
 <p class="sub">Πιθανότητες για κάθε αγώνα, φόρμα και στατιστικά ομάδων. Πάτα έναν αγώνα για την ανάλυση.</p>
 <div class="board">${nextRound.map(fxRow).join('') || '<p>Δεν υπάρχουν προγραμματισμένοι αγώνες αυτή τη στιγμή.</p>'}</div>
-<p class="note">Πράσινο: γηπεδούχος · γκρι: ισοπαλία · μπλε: φιλοξενούμενος.</p></div></section>
+<p class="note">Πράσινο: γηπεδούχος · γκρι: ισοπαλία · μπλε: φιλοξενούμενος.</p>${nextRound.length ? `<p><a class="btn" href="${U('paixnidi/')}">Νομίζεις ότι ξέρεις καλύτερα; Νίκησε το μοντέλο →</a></p>` : ''}</div></section>
 <section class="band"><div class="wrap cols"><div><h2>Βαθμολογία</h2>${tableHtml()}</div><div><h2>Η σεζόν σε αριθμούς</h2>
 ${LG ? `<div class="figs" style="margin-top:0"><div class="fig1"><b>${f1(LG.gpg)}</b><span>γκολ ανά αγώνα</span></div><div class="fig1"><b>${pc(LG.home)}</b><span>νίκες γηπεδούχων</span></div><div class="fig1"><b>${pc(LG.o25)}</b><span>αγώνες με 3+ γκολ</span></div><div class="fig1"><b>${pc(LG.btts)}</b><span>σκόραραν και οι δύο</span></div></div>
 <h3>Over 2,5 ανά ομάδα</h3><div class="rows">${TEAMS.map(t => [t, ST[t].cur.p ? ST[t].cur.o25 / ST[t].cur.p : 0]).sort((a, b) => b[1] - a[1]).map(([t, v]) => `<div class="row">${tlink(t)}<div class="bar"><i style="width:${(100 * v).toFixed(0)}%"></i></div><span class="v">${pc(v)}</span></div>`).join('')}</div><p class="note">${LG.n} αγώνες.</p>` : ''}
@@ -303,6 +303,51 @@ ${mk ? `<p class="note">Πριν τον αγώνα η αγορά έδινε ${es
   });
 }
 
+
+// ---------- παιχνίδι «Νίκησε το μοντέλο»: οι προβλέψεις του μοντέλου κλειδώνουν από την ημέρα του αγώνα
+const LEDGER = 'data/predictions.json';
+const led = JSON.parse(await fs.readFile(LEDGER, 'utf8').catch(() => '{}'));
+const mid = m => `${m.date}-${slugOf(m.h)}-${slugOf(m.a)}`;
+for (const f of nextRound) {
+  const id = mid(f);
+  if (f.date <= TODAY && led[id]) continue;
+  const o = f.p.indexOf(Math.max(...f.p));
+  const sc = f.pred.top.map(x => x[0]).find(x => { const [a, b] = x.split('-').map(Number); return (a > b ? 0 : a === b ? 1 : 2) === o; }) || f.pred.top[0][0];
+  led[id] = { r: roundNo, date: f.date, time: f.time, h: f.h, a: f.a, pick: '1X2'[o], score: sc };
+}
+await fs.writeFile(LEDGER, JSON.stringify(led, null, 1));
+const resOf = Object.fromEntries(CUR.map(m => [mid(m), `${m.hg}-${m.ag}`]));
+const GAME = Object.entries(led).map(([id, e]) => ({ id, ...e, hn: grName(e.h), an: grName(e.a), res: resOf[id] || null, url: U(`agones/${id}/`) })).sort((a, b) => b.r - a.r || a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+const gameJs = `
+const G=${JSON.stringify(GAME).replace(/</g, '\\u003c')};
+const KEY='slgr-predictions';let P={};try{P=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(P))}catch(e){}};
+const out=s=>{const[a,b]=s.split('-').map(Number);return a>b?'1':a===b?'X':'2'};
+const pts=(p,r)=>!p||!r?0:p===r?3:out(p)===out(r)?1:0;
+const locked=g=>new Date(g.date+'T'+(g.time||'00:00')+':00+02:00')<=new Date();
+function render(){
+ const rounds=[...new Set(G.map(g=>g.r))];let me=0,mo=0,n=0;
+ document.getElementById('game').innerHTML=rounds.map(r=>{const L=G.filter(g=>g.r===r);const done=L.every(g=>g.res);let a=0,b=0;
+  const rows=L.map(g=>{const p=P[g.id],lk=locked(g),pm=pts(p,g.res),pb=pts(g.score,g.res);if(g.res){a+=pm;b+=pb;if(p){me+=pm;mo+=pb;n++}}
+   const [x,y]=(p||'-').split('-');
+   const inp=lk?'<b>'+(p||'–')+'</b>':'<input inputmode="numeric" maxlength="2" aria-label="Γκολ '+g.hn+'" data-id="'+g.id+'" data-s="0" value="'+(x||'')+'"> - <input inputmode="numeric" maxlength="2" aria-label="Γκολ '+g.an+'" data-id="'+g.id+'" data-s="1" value="'+(y||'')+'">';
+   return '<tr><td class="l"><a href="'+g.url+'">'+g.hn+' – '+g.an+'</a><small>'+g.date.slice(8)+'/'+g.date.slice(5,7)+' '+g.time+'</small></td><td class="pick">'+inp+'</td><td>'+(lk||g.res?g.score:'<span class="hid" title="Φαίνεται μετά τη σέντρα">?</span>')+'</td><td>'+(g.res?'<b>'+g.res+'</b>':'–')+'</td><td>'+(g.res?(p?'<b class="p'+pm+'">'+pm+'</b>':'–')+' / '+pb:'')+'</td></tr>'}).join('');
+  return '<h2>'+r+'η αγωνιστική'+(done?' · εσύ '+a+' – μοντέλο '+b:'')+'</h2><div class="scroll"><table class="gt"><thead><tr><th class="l">Αγώνας</th><th>Η πρόβλεψή σου</th><th>Μοντέλο</th><th>Τελικό</th><th>Πόντοι (εσύ / μοντ.)</th></tr></thead><tbody>'+rows+'</tbody></table></div>'}).join('');
+ document.getElementById('score').innerHTML=n?'<div class="fig1"><b>'+me+'</b><span>οι πόντοι σου</span></div><div class="fig1"><b>'+mo+'</b><span>πόντοι μοντέλου στους ίδιους αγώνες</span></div><div class="fig1"><b>'+(me>mo?'Νικάς!':me===mo?'Ισοπαλία':'Χάνεις')+'</b><span>σε '+n+' αγώνες</span></div>':'<p class="note" style="font-size:15px">Βάλε σκορ στους αγώνες και γύρνα μετά την αγωνιστική να δεις αν νίκησες το μοντέλο.</p>';
+ document.getElementById('share').hidden=!n;document.getElementById('share').dataset.t='Στη Super League έκανα '+me+' πόντους και το μοντέλο '+mo+'. Νίκησέ το κι εσύ: '+location.href;
+}
+document.addEventListener('input',e=>{const t=e.target;if(!t.dataset.id)return;t.value=t.value.replace(/\\D/g,'').slice(0,2);const I=document.querySelectorAll('input[data-id="'+t.dataset.id+'"]');const v=[I[0].value,I[1].value];if(v[0]!==''&&v[1]!=='')P[t.dataset.id]=(+v[0])+'-'+(+v[1]);else delete P[t.dataset.id];save();document.getElementById('saved').textContent='Αποθηκεύτηκε ✓';});
+document.getElementById('share').onclick=async e=>{const t=e.target.dataset.t;try{if(navigator.share)await navigator.share({text:t});else{await navigator.clipboard.writeText(t);e.target.textContent='Αντιγράφηκε ✓'}}catch(x){}};
+render();`;
+page('paixnidi/', {
+  title: `Νίκησε το μοντέλο: προβλέψεις Super League ${roundNo}ης αγωνιστικής | ${NAME}`,
+  desc: `Δωρεάν παιχνίδι προβλέψεων για τη Super League: βάλε σκορ στους αγώνες της ${roundNo}ης αγωνιστικής και δες αν νικάς το μοντέλο μας.`,
+  crumbs: [['Νίκησε το μοντέλο', 'paixnidi/']],
+  body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Νίκησε το μοντέλο</h1><p class="sub">Βάλε σκορ σε κάθε αγώνα της αγωνιστικής πριν τη σέντρα. Ακριβές σκορ: 3 πόντοι · σωστό 1-Χ-2: 1 πόντος. Το ίδιο παίρνει και το μοντέλο μας.</p><div class="figs" id="score"></div><p><button id="share" class="btn" hidden>Μοιράσου το σκορ σου</button></p></div></section>
+<section class="band"><div class="wrap"><p class="note" id="saved" aria-live="polite">Οι προβλέψεις σου αποθηκεύονται μόνο σε αυτή τη συσκευή.</p><div id="game"><p>Φόρτωση…</p></div>
+<p class="note">Η πρόβλεψη του μοντέλου φαίνεται μόλις ξεκινήσει ο αγώνας, για να μην επηρεάσει τη δική σου. Τα αποτελέσματα ενημερώνονται κάθε Δευτέρα και Πέμπτη. Παιχνίδι για διασκέδαση, χωρίς χρήματα.</p></div></section>
+<script>${gameJs}</script>`,
+});
 
 page('statistika/', {
   title: `Στοιχηματικά στατιστικά Super League ${seasonLabel(cur)}: ημίχρονο, ανατροπές, over, κόρνερ | ${NAME}`,

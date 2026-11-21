@@ -89,3 +89,9 @@ footer a{color:#fff}
 .scard .more{display:inline-block;margin-top:10px;font-size:14px;font-weight:600}
 .pos-v{color:var(--h)}.neg-v{color:#c8402f}
 .htft td,.htft th{text-align:center}
+.btn{display:inline-block;margin-top:14px;padding:10px 18px;border-radius:999px;border:0;background:var(--card);color:#14201a;font:600 16px "Fira Sans",sans-serif;text-decoration:none;cursor:pointer}
+.gt td small{display:block;color:var(--mute);font-size:12px}
+.gt .pick{white-space:nowrap}
+.gt input{width:2.4em;padding:6px 4px;text-align:center;font:600 16px "Fira Sans",sans-serif;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.gt .p3{color:var(--h)}.gt .p1{color:#b88a00}.gt .p0{color:#c8402f}
+.hid{color:var(--mute)}
