@@ -23,6 +23,8 @@ function parseCSV(t) {
 }
 const num = v => (v === '' || v == null ? null : +v);
 const dateOf = d => { const [dd, mm, yy] = d.split('/'); return `${yy.length === 2 ? '20' + yy : yy}-${mm}-${dd}`; };
+// Οι ώρες του football-data είναι ώρα Αγγλίας· η Ελλάδα είναι πάντα 2 ώρες μπροστά.
+const toAth = (date, time) => { if (!time) return [date, '']; const d = new Date(`${date}T${time}:00Z`); d.setUTCHours(d.getUTCHours() + 2); return [d.toISOString().slice(0, 10), d.toISOString().slice(11, 16)]; };
 const first = (r, ...k) => { for (const x of k) if (r[x] !== undefined && r[x] !== '') return num(r[x]); return null; };
 
 const cur = seasonCode(new Date(TODAY)), prevCode = seasonCode(new Date(new Date(TODAY).setFullYear(new Date(TODAY).getFullYear() - 1)));
@@ -31,7 +33,7 @@ async function loadSeason(code) {
   if (!t) return [];
   return parseCSV(t).filter(r => r.HomeTeam && r.FTHG !== '').map(r => {
     const m = {
-      s: code, date: dateOf(r.Date), time: r.Time || '', h: r.HomeTeam, a: r.AwayTeam, hg: +r.FTHG, ag: +r.FTAG, hh: num(r.HTHG), ha: num(r.HTAG),
+      s: code, ...(([date, time]) => ({ date, time }))(toAth(dateOf(r.Date), r.Time || '')), h: r.HomeTeam, a: r.AwayTeam, hg: +r.FTHG, ag: +r.FTAG, hh: num(r.HTHG), ha: num(r.HTAG),
       hs: num(r.HS), as: num(r.AS), hst: num(r.HST), ast: num(r.AST), hc: num(r.HC), ac: num(r.AC), hy: num(r.HY), ay: num(r.AY), hr: num(r.HR), ar: num(r.AR), ref: r.Referee || '',
     };
     const o = [first(r, 'AvgCH', 'PSCH', 'AvgH', 'B365H'), first(r, 'AvgCD', 'PSCD', 'AvgD', 'B365D'), first(r, 'AvgCA', 'PSCA', 'AvgA', 'B365A')];
@@ -66,7 +68,7 @@ const BUCKETS = ["1'-15'", "16'-30'", "31'-45'", "46'-60'", "61'-75'", "76'-90'"
 const minTxt = g => `${g.m}'${g.x ? '+' + g.x : ''}`;
 
 const FIX = fixRows.filter(r => r.HomeTeam).map(r => {
-  const f = { date: dateOf(r.Date), time: r.Time || '', h: r.HomeTeam, a: r.AwayTeam };
+  const [fd, ft] = toAth(dateOf(r.Date), r.Time || ''); const f = { date: fd, time: ft, h: r.HomeTeam, a: r.AwayTeam };
   const o = [num(r.AvgH), num(r.AvgD), num(r.AvgA)], ou = [num(r['Avg>2.5']), num(r['Avg<2.5'])];
   f.odds = o.every(x => x > 1) ? o : null;
   f.mkt = f.odds ? devig(...f.odds) : null;
