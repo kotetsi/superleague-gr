@@ -48,6 +48,8 @@ function parseSquad(w) {
 }
 
 const prev = JSON.parse(await fs.readFile('data/players.json', 'utf8').catch(() => '{"teams":{}}'));
+// Τα ρόστερ αλλάζουν σπάνια: ανανέωση το πολύ μία φορά στις 3 μέρες (εκτός αν FORCE=1).
+if (prev.updated && !process.env.FORCE && (Date.now() - new Date(prev.updated)) < 3 * 864e5 && Object.keys(prev.teams).length) { console.log(`Ρόστερ από ${prev.updated}, χωρίς ανανέωση`); process.exit(0); }
 const res = { updated: new Date().toISOString().slice(0, 10), teams: { ...prev.teams } };
 const all = [];
 for (const t of teams) {
