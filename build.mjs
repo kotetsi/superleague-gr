@@ -1,6 +1,7 @@
 // Χτίζει το στατικό site στο dist/ από τα CSV του data/.
 // SITE_URL: πλήρης διεύθυνση (για canonical/sitemap), SITE_BASE: διαδρομή βάσης (π.χ. /superleague-gr/ στο GitHub Pages).
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { grName, slugOf, genOf, ESPN_ID } from './src/teams.mjs';
@@ -29,8 +30,8 @@ const toAth = (date, time) => { if (!time) return [date, '']; const d = new Date
 const first = (r, ...k) => { for (const x of k) if (r[x] !== undefined && r[x] !== '') return num(r[x]); return null; };
 
 const cur = seasonCode(new Date(TODAY)), prevCode = seasonCode(new Date(new Date(TODAY).setFullYear(new Date(TODAY).getFullYear() - 1)));
-async function loadSeason(code) {
-  const t = await fs.readFile(`data/G1-${code}.csv`, 'utf8').catch(() => null);
+async function loadSeason(code, file = `data/G1-${code}.csv`) {
+  const t = await fs.readFile(file, 'utf8').catch(() => null);
   if (!t) return [];
   return parseCSV(t).filter(r => r.HomeTeam && r.FTHG !== '').map(r => {
     const m = {
@@ -231,21 +232,29 @@ const statBars = (st, L) => { const mx = Math.max(...L.map(r => Math.abs(r.v))) 
 // ---------- έλεγχος μοντέλου (walk-forward) και ευκαιρίες
 // Για κάθε αγώνα: μοντέλο εκπαιδευμένο μόνο σε προηγούμενους αγώνες, σύγκριση με τις αποδόσεις πριν τον αγώνα (άνοιγμα) και στο κλείσιμο.
 const mkey = m => `${m.date}-${slugOf(m.h)}-${slugOf(m.a)}`;
-const EV_TH = 0.05;
+const EV_TH = 0.05, MAX_PRICE = 4, WF_FROM = '2018-08-01';
+const LOADED_FULL = {};
+for (const f of fsSync.existsSync('data/full') ? fsSync.readdirSync('data/full') : []) { const c = f.slice(3, 7); if (/^G1-\d{4}\.csv$/.test(f)) LOADED_FULL[c] = await loadSeason(c, 'data/full/' + f); }
 const WF = (() => {
-  const L = M.filter(m => m.o?.avgO && m.o?.avgC), start = Math.floor(L.length * 0.25), cache = {}, rows = [];
-  for (const m of L.slice(start)) {
-    const Fm = (cache[m.date] ||= fit(M, m.date)), p = predict(Fm, m.h, m.a), pm = [p.h, p.d, p.a], r = m.hg > m.ag ? 0 : m.hg === m.ag ? 1 : 2;
+  const OLD = [];
+  for (const f of (fsSync.existsSync('data/full') ? fsSync.readdirSync('data/full') : []).filter(f => /^G1-\d{4}\.csv$/.test(f))) { const c = f.slice(3, 7); if (c !== cur && c !== prevCode) OLD.push(...LOADED_FULL[c]); }
+  const MF = [...OLD, ...M].sort((a, b) => a.date.localeCompare(b.date));
+  const L = MF.filter(m => m.o?.avgO && m.o?.avgC && m.date >= WF_FROM), cache = {}, rows = [];
+  for (const m of L) {
+    const Fm = (cache[m.date] ||= fit(MF, m.date)), p = predict(Fm, m.h, m.a), pm = [p.h, p.d, p.a], r = m.hg > m.ag ? 0 : m.hg === m.ag ? 1 : 2;
     const best = bestOf(m.o.open), bestC = bestOf(m.o.close), pc = devig(...m.o.avgC);
-    const bets = [0, 1, 2].filter(i => best[i] && pm[i] * best[i][0] - 1 > EV_TH).map(i => ({ i, price: best[i][0], book: best[i][1], ev: pm[i] * best[i][0] - 1, won: r === i, clv: best[i][0] * pc[i] - 1, move: bestC[i] ? best[i][0] / bestC[i][0] - 1 : null }));
-    rows.push({ m, pm, po: devig(...m.o.avgO), pc, r, bets });
+    const sel = i => best[i] && pm[i] * best[i][0] - 1 > EV_TH && best[i][0] < MAX_PRICE, out = [0, 1, 2].filter(i => best[i] && pm[i] * best[i][0] - 1 > EV_TH && best[i][0] >= MAX_PRICE).map(i => ({ i, price: best[i][0], won: r === i }));
+    const bets = [0, 1, 2].filter(sel).map(i => ({ i, price: best[i][0], book: best[i][1], ev: pm[i] * best[i][0] - 1, won: r === i, clv: best[i][0] * pc[i] - 1, move: bestC[i] ? best[i][0] / bestC[i][0] - 1 : null }));
+    rows.push({ m, pm, po: devig(...m.o.avgO), pc, r, bets, out });
   }
   const ll = k => -rows.reduce((s, x) => s + Math.log(x[k][x.r]), 0) / rows.length;
-  const B = rows.flatMap(x => x.bets.map(b => ({ ...b, m: x.m, pm: x.pm[b.i] })));
+  const B = rows.flatMap(x => x.bets.map(b => ({ ...b, m: x.m, pm: x.pm[b.i] }))), O = rows.flatMap(x => x.out);
+  const seasons = {}; for (const b of B) { const y = +b.m.date.slice(0, 4) - (b.m.date.slice(5, 7) < '07'); const g = seasons[y] ||= { n: 0, pr: 0 }; g.n++; g.pr += b.won ? b.price - 1 : -1; }
+  const outP = O.reduce((s, b) => s + (b.won ? b.price - 1 : -1), 0);
   const base = rows.flatMap(x => [0, 1, 2].map(i => { const b = bestOf(x.m.o.open)[i]; return b ? b[0] * x.pc[i] - 1 : null; }).filter(v => v != null));
-  return { rows, n: rows.length, from: rows[0]?.m.date, ll: { model: ll('pm'), open: ll('po'), close: ll('pc') }, B, profit: B.reduce((s, b) => s + (b.won ? b.price - 1 : -1), 0), clv: B.reduce((s, b) => s + b.clv, 0) / (B.length || 1), baseClv: base.reduce((s, v) => s + v, 0) / (base.length || 1), move: B.filter(b => b.move != null).reduce((s, b) => s + b.move, 0) / (B.filter(b => b.move != null).length || 1) };
+  return { rows, seasons, outN: O.length, outRoi: outP / (O.length || 1), n: rows.length, from: rows[0]?.m.date, ll: { model: ll('pm'), open: ll('po'), close: ll('pc') }, B, profit: B.reduce((s, b) => s + (b.won ? b.price - 1 : -1), 0), clv: B.reduce((s, b) => s + b.clv, 0) / (B.length || 1), baseClv: base.reduce((s, v) => s + v, 0) / (base.length || 1), move: B.filter(b => b.move != null).reduce((s, b) => s + b.move, 0) / (B.filter(b => b.move != null).length || 1) };
 })();
-const OPP = FIX.filter(f => f.o && Object.keys(f.o.open).length).flatMap(f => { const pm = [f.pred.h, f.pred.d, f.pred.a], best = bestOf(f.o.open), pmk = f.o.avgO ? devig(...f.o.avgO) : f.mkt; return [0, 1, 2].filter(i => best[i] && pm[i] * best[i][0] - 1 > EV_TH).map(i => ({ f, i, pm: pm[i], pmk: pmk?.[i], price: best[i][0], book: best[i][1], ev: pm[i] * best[i][0] - 1 })); }).sort((a, b) => b.ev - a.ev);
+const OPP = FIX.filter(f => f.o && Object.keys(f.o.open).length).flatMap(f => { const pm = [f.pred.h, f.pred.d, f.pred.a], best = bestOf(f.o.open), pmk = f.o.avgO ? devig(...f.o.avgO) : f.mkt; return [0, 1, 2].filter(i => best[i] && pm[i] * best[i][0] - 1 > EV_TH && best[i][0] < MAX_PRICE).map(i => ({ f, i, pm: pm[i], pmk: pmk?.[i], price: best[i][0], book: best[i][1], ev: pm[i] * best[i][0] - 1 })); }).sort((a, b) => b.ev - a.ev);
 // καταγραφή των ευκαιριών τη στιγμή που εμφανίζονται (για έλεγχο χωρίς εκ των υστέρων επιλογή)
 const VLED = 'data/value-ledger.json';
 const vled = JSON.parse(await fs.readFile(VLED, 'utf8').catch(() => '{}'));
@@ -674,14 +683,15 @@ page('agonistiki/', {
     title: `Ευκαιρίες αξίας Super League και έλεγχος μοντέλου | ${NAME}`,
     desc: `Πού το μοντέλο μας βλέπει αξία στις αποδόσεις της Super League και πώς τα πήγε σε ${W.n} αγώνες: ακρίβεια, κέρδος και CLV, με όλα τα στοιχήματα.`,
     crumbs: [['Μοντέλο & ευκαιρίες', 'montelo/']],
-    body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Ευκαιρίες και έλεγχος μοντέλου</h1><p class="sub">Πού η καλύτερη διαθέσιμη απόδοση είναι μεγαλύτερη από τη «δίκαιη» τιμή του μοντέλου μας κατά ${Math.round(EV_TH * 100)}% και πάνω, και πώς τα πήγε αυτό στο παρελθόν.</p></div></section>
+    body: `<section class="hero band"><div class="wrap"><!--crumbs--><h1>Ευκαιρίες και έλεγχος μοντέλου</h1><p class="sub">Αγώνες όπου η καλύτερη απόδοση (κάτω από ${MAX_PRICE}) είναι μεγαλύτερη από τη «δίκαιη» τιμή του μοντέλου μας κατά ${Math.round(EV_TH * 100)}% και πάνω, και πώς τα πήγε αυτό από το 2018.</p></div></section>
 <section class="band"><div class="wrap"><h2>Τρέχουσες ευκαιρίες</h2>${OPP.length ? `<div class="scroll"><table><thead><tr><th class="l">Αγώνας</th><th class="l">Επιλογή</th><th>Μοντέλο</th><th>Αγορά</th><th>Δίκαιη</th><th>Καλύτερη</th><th>Αξία</th></tr></thead><tbody>${OPP.map(o => `<tr><td class="l"><a href="${U(matchPath(o.f))}">${esc(grName(o.f.h))} – ${esc(grName(o.f.a))}</a><small style="display:block;color:var(--mute)">${dShort(o.f.date)} ${esc(o.f.time)}</small></td><td class="l"><b>${'1X2'[o.i]}</b> ${esc(pickName(o.f, o.i))}</td><td>${pc(o.pm)}</td><td>${o.pmk ? pc(o.pmk) : '–'}</td><td>${(1 / o.pm).toFixed(2)}</td><td><b>${o.price.toFixed(2)}</b><small style="display:block;color:var(--mute)">${esc(BOOKS[o.book])}</small></td><td class="pos-v"><b>${pp(o.ev)}</b></td></tr>`).join('')}</tbody></table></div>` : '<p>Αυτή τη στιγμή δεν υπάρχει αγώνας όπου η καλύτερη απόδοση ξεπερνά τη δίκαιη τιμή του μοντέλου κατά ' + Math.round(EV_TH * 100) + '%.</p>'}
 <p class="note">Αποδόσεις από το football-data.co.uk (${Object.values(BOOKS).join(', ')}), όπως ήταν στην τελευταία ενημέρωση· μπορεί να έχουν αλλάξει. Δεν είναι οι τιμές των ελληνικών εταιρειών. «Αξία» = πιθανότητα μοντέλου × καλύτερη απόδοση − 1.</p></div></section>
 <section class="band"><div class="wrap duo"><div><h2>Πώς τα πήγε το μοντέλο</h2><p class="prose">Έλεγχος σε ${W.n} αγώνες από ${dLong(W.from)}: για κάθε αγώνα το μοντέλο εκπαιδεύτηκε μόνο με όσους είχαν παιχτεί πριν, όπως θα συνέβαινε στην πράξη.</p>
 <div class="scroll"><table><thead><tr><th class="l">Ακρίβεια 1-Χ-2 (log loss, μικρότερο = καλύτερο)</th><th></th></tr></thead><tbody><tr><td class="l">Μοντέλο μας</td><td><b>${W.ll.model.toFixed(3).replace('.', ',')}</b></td></tr><tr><td class="l">Αγορά πριν τον αγώνα (άνοιγμα)</td><td>${W.ll.open.toFixed(3).replace('.', ',')}</td></tr><tr><td class="l">Αγορά στο κλείσιμο</td><td>${W.ll.close.toFixed(3).replace('.', ',')}</td></tr></tbody></table></div>
-<p class="prose">Το μοντέλο είναι περίπου όσο ακριβές όσο οι αποδόσεις πριν τον αγώνα, αλλά λιγότερο από τις αποδόσεις κλεισίματος, που ενσωματώνουν απουσίες, ενδεκάδες και τα χρήματα των επαγγελματιών.</p>
-<h3>Τα στοιχήματα «αξίας» (> ${Math.round(EV_TH * 100)}%)</h3><div class="figs" style="margin-top:0"><div class="fig1"><b>${W.B.length}</b><span>στοιχήματα</span></div><div class="fig1"><b class="${W.profit >= 0 ? 'pos-v' : 'neg-v'}">${W.profit >= 0 ? '+' : ''}${W.profit.toFixed(1).replace('.', ',')} μον.</b><span>κέρδος (ROI ${pp(W.profit / (W.B.length || 1))})</span></div><div class="fig1"><b class="${W.clv >= 0 ? 'pos-v' : 'neg-v'}">${pp(W.clv)}</b><span>CLV (έναντι ${pp(W.baseClv)} χωρίς επιλογή)</span></div><div class="fig1"><b class="${W.move >= 0 ? 'pos-v' : 'neg-v'}">${pp(W.move)}</b><span>πόσο «έπεσε» μετά η απόδοση</span></div></div>
-<p class="prose">Το <b>CLV</b> δείχνει αν πήραμε καλύτερη τιμή από αυτή που έκλεισε η αγορά. Αν πόνταρες σε όλες τις εκβάσεις στην καλύτερη απόδοση, το CLV θα ήταν ${pp(W.baseClv)}· στις επιλογές του μοντέλου είναι ${pp(W.clv)}, δηλαδή η αγορά κινήθηκε προς την πλευρά του μοντέλου. Αυτό είναι το πιο αξιόπιστο σημάδι αξίας. Το κέρδος/ζημιά σε ${W.B.length} στοιχήματα επηρεάζεται ακόμα πολύ από την τύχη.</p></div>
+<p class="prose">Οι αποδόσεις κλεισίματος είναι πιο ακριβείς γιατί ενσωματώνουν απουσίες, ενδεκάδες και τα χρήματα των επαγγελματιών.</p>
+<h3>Τα στοιχήματα «αξίας» (> ${Math.round(EV_TH * 100)}%)</h3><div class="figs" style="margin-top:0"><div class="fig1"><b>${W.B.length}</b><span>στοιχήματα</span></div><div class="fig1"><b class="${W.profit >= 0 ? 'pos-v' : 'neg-v'}">${W.profit >= 0 ? '+' : ''}${W.profit.toFixed(1).replace('.', ',')} μον.</b><span>κέρδος (ROI ${pp(W.profit / (W.B.length || 1))})</span></div><div class="fig1"><b class="${W.clv >= 0 ? 'pos-v' : 'neg-v'}">${pp(W.clv)}</b><span>CLV</span></div></div>
+<h3>Ανά σεζόν</h3><div class="scroll"><table><thead><tr><th class="l">Σεζόν</th><th>Στοιχήματα</th><th>ROI</th></tr></thead><tbody>${Object.entries(W.seasons).sort().map(([y, g]) => `<tr><td class="l">${y}–${String(+y + 1).slice(2)}</td><td>${g.n}</td><td class="${g.pr >= 0 ? 'pos-v' : 'neg-v'}">${pp(g.pr / g.n)}</td></tr>`).join('')}</tbody></table></div>
+<p class="prose"><b>Τι σημαίνουν αυτά:</b> το μοντέλο είναι περίπου όσο καλό όσο οι αποδόσεις πριν τον αγώνα, όχι καλύτερο από το κλείσιμο. Οι «ευκαιρίες» με απόδοση κάτω από ${MAX_PRICE} έδωσαν ${pp(W.profit / (W.B.length || 1))} σε ${W.B.length} στοιχήματα, αλλά το αποτέλεσμα αλλάζει πολύ από σεζόν σε σεζόν και ο κανόνας βρέθηκε δοκιμάζοντας πολλούς, οπότε δεν είναι αποδεδειγμένο πλεονέκτημα. Στα αουτσάιντερ (απόδοση ${MAX_PRICE}+) το μοντέλο τα υπερεκτιμά: ${W.outN} τέτοια «ευκαιρίες» έδωσαν ${pp(W.outRoi)}, γι' αυτό δεν εμφανίζονται. Η πραγματική απόδειξη θα είναι η καταγραφή δίπλα, που ξεκίνησε στις 21/11/2026.</p></div>
 <div><h2>Καταγεγραμμένες ευκαιρίες</h2><p class="note">Κάθε ευκαιρία καταγράφεται τη μέρα που εμφανίζεται και δεν αλλάζει. ${settled.length ? `Μέχρι τώρα: ${settled.length} κρίθηκαν, κέρδος ${vProfit >= 0 ? '+' : ''}${vProfit.toFixed(2).replace('.', ',')} μονάδες.` : 'Η καταγραφή ξεκίνησε στις ' + dLong(TODAY) + '.'}</p>${VL.length ? `<div class="scroll"><table><tbody>${VL.slice(0, 40).map(v => `<tr><td class="l">${v.date.slice(8)}/${v.date.slice(5, 7)}</td><td class="l">${esc(grName(v.h))} – ${esc(grName(v.a))}</td><td><b>${v.pick}</b> @ ${v.price.toFixed(2)}</td><td>${v.res ? `${v.res} ${v.won ? '<span class="pos-v">✔</span>' : '<span class="neg-v">✘</span>'}` : '–'}</td><td>${v.clv != null ? pp(v.clv) : ''}</td></tr>`).join('')}</tbody></table></div>` : ''}
 <h3>Ιστορικό ελέγχου (τελευταία 30)</h3><div class="scroll"><table><tbody>${[...W.B].reverse().slice(0, 30).map(b => `<tr><td class="l">${b.m.date.slice(8)}/${b.m.date.slice(5, 7)}/${b.m.date.slice(2, 4)}</td><td class="l">${esc(grName(b.m.h))} – ${esc(grName(b.m.a))}</td><td><b>${'1X2'[b.i]}</b> @ ${b.price.toFixed(2)}</td><td>${b.m.hg}-${b.m.ag} ${b.won ? '<span class="pos-v">✔</span>' : '<span class="neg-v">✘</span>'}</td><td>${pp(b.clv)}</td></tr>`).join('')}</tbody></table></div></div></div></section>
 <section class="band"><div class="wrap"><p class="note">Οι εκτιμήσεις είναι στατιστικές και δεν αποτελούν συμβουλή στοιχήματος. Μια μεγάλη διαφορά με την αγορά μπορεί να σημαίνει ότι η αγορά ξέρει κάτι (απουσία, ενδεκάδα) που το μοντέλο δεν ξέρει. 21+ · Παίξε υπεύθυνα.</p></div></section>`,

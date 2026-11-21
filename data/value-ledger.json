@@ -1,34 +1,4 @@
 {
- "2026-11-22-olympiakos-iraklis|X": {
-  "at": "2026-11-21",
-  "date": "2026-11-22",
-  "h": "Olympiakos",
-  "a": "Iraklis",
-  "pick": "X",
-  "pm": 0.168,
-  "price": 8,
-  "book": "B365"
- },
- "2026-11-22-panathinaikos-ofi|X": {
-  "at": "2026-11-21",
-  "date": "2026-11-22",
-  "h": "Panathinaikos",
-  "a": "OFI Crete",
-  "pick": "X",
-  "pm": 0.1861,
-  "price": 7,
-  "book": "B365"
- },
- "2026-11-22-panathinaikos-ofi|2": {
-  "at": "2026-11-21",
-  "date": "2026-11-22",
-  "h": "Panathinaikos",
-  "a": "OFI Crete",
-  "pick": "2",
-  "pm": 0.0906,
-  "price": 12,
-  "book": "BV"
- },
  "2026-11-22-levadeiakos-atromitos|1": {
   "at": "2026-11-21",
   "date": "2026-11-22",
@@ -38,15 +8,5 @@
   "pm": 0.4271,
   "price": 2.5,
   "book": "PP"
- },
- "2026-11-21-kalamata-aek|X": {
-  "at": "2026-11-21",
-  "date": "2026-11-21",
-  "h": "Kalamata",
-  "a": "AEK",
-  "pick": "X",
-  "pm": 0.2125,
-  "price": 5,
-  "book": "BW"
  }
 }
