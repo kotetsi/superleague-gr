@@ -9,7 +9,9 @@ export function oddsOf(r) {
     const a = tri(r, b), c = tri(r, b, 'C'); if (a) o.open[b] = a; if (c) o.close[b] = c;
   }
   o.avgO = tri(r, 'Avg'); o.avgC = tri(r, 'Avg', 'C'); o.maxO = tri(r, 'Max'); o.maxC = tri(r, 'Max', 'C');
-  o.pinC = tri(r, 'PS', 'C') || tri(r, 'PS');
+  o.pinO = tri(r, 'PS'); o.pinC = tri(r, 'PS', 'C'); o.bfeO = tri(r, 'BFE'); o.bfeC = tri(r, 'BFE', 'C');
+  // «έξυπνα χρήματα»: Pinnacle (έως 2025) ή Betfair Exchange, άνοιγμα και κλείσιμο από την ίδια πηγή
+  if (o.pinO && o.pinC) { o.shO = o.pinO; o.shC = o.pinC; o.sh = 'Pinnacle'; } else if (o.bfeO && o.bfeC) { o.shO = o.bfeO; o.shC = o.bfeC; o.sh = 'Betfair'; }
   for (const [b, k] of [['B365', 'B365'], ['Max', 'Max'], ['Avg', 'Avg']]) {
     const ov = n(r[k + '>2.5']), un = n(r[k + '<2.5']); if (ov && un) o.ouO[b] = [ov, un];
     const ovc = n(r[k + 'C>2.5']), unc = n(r[k + 'C<2.5']); if (ovc && unc) o.ouC[b] = [ovc, unc];

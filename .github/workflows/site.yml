@@ -3,8 +3,8 @@ on:
   push:
     branches: [main]
   schedule:
-    # Δευτέρα και Πέμπτη 08:20 UTC (μετά τις αγωνιστικές και πριν τις επόμενες)
-    - cron: '20 8 * * 1,4'
+    # κάθε μέρα 08:20 και 15:20 UTC (κίνηση αποδόσεων, live αποτελέσματα, Telegram)
+    - cron: '20 8,15 * * *'
   workflow_dispatch:
 permissions:
   contents: write

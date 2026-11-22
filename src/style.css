@@ -140,3 +140,6 @@ footer a{color:#fff}
 .prods{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:10px 0}
 .prod{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:10px;background:var(--panel);text-decoration:none;color:var(--ink);font-size:14px}
 .prod img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;border-radius:6px}.prod b{color:var(--h)}
+.mvt{font-size:12px;white-space:nowrap}.mvt.up{color:var(--h)}.mvt.dn{color:#c8402f}.mvt.n{color:var(--mute)}
+tr.strong{background:rgba(255,200,40,.12)}.sig{color:#b88a00}
+.mvline{font-size:14px;line-height:1.7}
