@@ -263,11 +263,12 @@ const WF = (() => {
 // στιγμιότυπα αποδόσεων των επόμενων αγώνων: από αυτά βγαίνει η κίνηση των «έξυπνων» χρημάτων (Betfair Exchange) πριν τη σέντρα
 const SNAPF = 'data/odds-snapshots.json';
 const SNAP = JSON.parse(await fs.readFile(SNAPF, 'utf8').catch(() => '{}'));
-for (const f of FIX) { if (!f.o?.bfeO) continue; const k = mkey(f), L = (SNAP[k] ||= []), last = L.at(-1);
+const kickAt = x => new Date(`${x.date}T${x.time || '12:00'}:00+02:00`).getTime();
+for (const f of FIX) { if (!f.o?.bfeO || kickAt(f) <= Date.now()) continue; const k = mkey(f), L = (SNAP[k] ||= []), last = L.at(-1);
   if (!last || last.bfe.join() !== f.o.bfeO.join() || last.avg?.join() !== f.o.avgO?.join()) L.push({ t: new Date().toISOString().slice(0, 16), bfe: f.o.bfeO, avg: f.o.avgO }); }
 for (const k of Object.keys(SNAP)) if (k.slice(0, 10) < new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)) delete SNAP[k];
 await fs.writeFile(SNAPF, JSON.stringify(SNAP));
-const moveOf = f => { const L = SNAP[mkey(f)]; if (!L || L.length < 2) return null; const a = devig(...L[0].bfe), b = devig(...L.at(-1).bfe); return { mv: [0, 1, 2].map(i => b[i] - a[i]), from: L[0], to: L.at(-1) }; };
+const moveOf = f => { const L = (SNAP[mkey(f)] || []).filter(x => new Date(x.t + 'Z').getTime() < kickAt(f)); if (!L || L.length < 2) return null; const a = devig(...L[0].bfe), b = devig(...L.at(-1).bfe); return { mv: [0, 1, 2].map(i => b[i] - a[i]), from: L[0], to: L.at(-1) }; };
 const mvTag = mv => (mv == null ? '<span class="mvt n">χωρίς κίνηση ακόμα</span>' : mv > MOVE_TH ? '<span class="mvt up">▲ τα χρήματα πάνε εδώ</span>' : mv < -MOVE_TH ? '<span class="mvt dn">▼ τα χρήματα πάνε αλλού</span>' : '<span class="mvt n">σταθερή</span>');
 
 const OPP = FIX.filter(f => f.o && Object.keys(f.o.open).length).flatMap(f => { const pm = [f.pred.h, f.pred.d, f.pred.a], best = bestOf(f.o.open), pmk = f.o.avgO ? devig(...f.o.avgO) : f.mkt; return [0, 1, 2].filter(i => best[i] && pm[i] * best[i][0] - 1 > EV_TH && best[i][0] < MAX_PRICE).map(i => ({ f, i, pm: pm[i], pmk: pmk?.[i], price: best[i][0], book: best[i][1], ev: pm[i] * best[i][0] - 1, mv: moveOf(f)?.mv[i] ?? null })); }).map(o => ({ ...o, strong: o.mv != null && o.mv > MOVE_TH })).sort((a, b) => b.strong - a.strong || b.ev - a.ev);
