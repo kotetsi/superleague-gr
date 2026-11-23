@@ -58,6 +58,24 @@ const ESPN = JSON.parse(await fs.readFile('data/espn.json', 'utf8').catch(() => 
 const athDate = iso => new Date(iso).toLocaleDateString('sv-SE', { timeZone: 'Europe/Athens' });
 const EVK = {};
 for (const e of Object.values(ESPN.days || {}).flat()) if (e.st === 'post') EVK[`${athDate(e.t)}|${e.h}|${e.a}`] = e;
+// Αγώνες που έχουν τελειώσει στην ESPN αλλά δεν έχουν μπει ακόμα στο football-data: προσωρινά από την ESPN (χωρίς σουτ/κόρνερ).
+{
+  const have = new Set(CUR.map(m => m.h + '|' + m.a));
+  for (const e of Object.values(ESPN.days || {}).flat()) {
+    if (e.st !== 'post' || have.has(e.h + '|' + e.a) || seasonCode(new Date(e.t)) !== cur) continue;
+    const [date, time] = (() => { const d = new Date(e.t); return [athDate(e.t), d.toLocaleTimeString('en-GB', { timeZone: 'Europe/Athens', hour: '2-digit', minute: '2-digit' })]; })();
+    const fx = fixRows.find(r => r.HomeTeam === e.h && r.AwayTeam === e.a);
+    const goals = e.ev.filter(x => ['g', 'pen', 'og'].includes(x.k));
+    const side = (L, sd, k) => L.filter(x => x.side === sd && x.k === k).length;
+    const m = { s: cur, date, time, h: e.h, a: e.a, hg: e.hs, ag: e.as, hh: goals.filter(x => x.m <= 45 && x.side === 'h').length, ha: goals.filter(x => x.m <= 45 && x.side === 'a').length,
+      hs: null, as: null, hst: null, ast: null, hc: null, ac: null, hy: side(e.ev, 'h', 'y'), ay: side(e.ev, 'a', 'y'), hr: side(e.ev, 'h', 'r'), ar: side(e.ev, 'a', 'r'), ref: '', espnOnly: true };
+    const o = fx ? [num(fx.AvgH), num(fx.AvgD), num(fx.AvgA)] : [];
+    m.odds = o.length && o.every(x => x > 1) ? o : null; m.o = fx ? oddsOf(fx) : null; m.ou = fx ? [num(fx['Avg>2.5']), num(fx['Avg<2.5'])] : [null, null]; m.mx = marketXG(m);
+    CUR.push(m); M.push(m); have.add(e.h + '|' + e.a);
+    EVK[`${date}|${e.h}|${e.a}`] = e;
+  }
+  CUR.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+}
 for (const m of CUR) {
   const e = EVK[`${m.date}|${m.h}|${m.a}`] || [-1, 1].map(k => { const d = new Date(m.date + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + k); return EVK[`${d.toISOString().slice(0, 10)}|${m.h}|${m.a}`]; }).find(Boolean);
   if (!e || e.hs !== m.hg || e.as !== m.ag) continue;
