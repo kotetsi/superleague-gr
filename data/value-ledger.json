@@ -8,5 +8,15 @@
   "pm": 0.4271,
   "price": 2.5,
   "book": "PP"
+ },
+ "2026-11-23-asteras-tripolis-aris|1": {
+  "at": "2026-11-23",
+  "date": "2026-11-23",
+  "h": "Asteras Tripolis",
+  "a": "Aris",
+  "pick": "1",
+  "pm": 0.3111,
+  "price": 3.4,
+  "book": "B365"
  }
 }
