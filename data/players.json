@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-21",
+ "updated": "2026-11-24",
  "teams": {
   "AEK": {
    "source": "https://en.wikipedia.org/wiki/AEK_Athens_F.C.",
@@ -10703,7 +10703,7 @@
      "clubs": [
       {
        "n": "Τουρ ΦΚ",
-       "en": "Tours FC.",
+       "en": "Tours FC",
        "from": "2013",
        "to": "2016",
        "loan": false
