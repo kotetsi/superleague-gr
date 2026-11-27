@@ -61,5 +61,68 @@
   "a": "Aris",
   "pick": "2",
   "score": "0-1"
+ },
+ "2026-11-28-iraklis-panaitolikos": {
+  "r": 12,
+  "date": "2026-11-28",
+  "time": "17:00",
+  "h": "Iraklis",
+  "a": "Panetolikos",
+  "pick": "1",
+  "score": "1-0"
+ },
+ "2026-11-28-volos-asteras-tripolis": {
+  "r": 12,
+  "date": "2026-11-28",
+  "time": "17:00",
+  "h": "Volos NFC",
+  "a": "Asteras Tripolis",
+  "pick": "1",
+  "score": "1-0"
+ },
+ "2026-11-28-kifisia-kalamata": {
+  "r": 12,
+  "date": "2026-11-28",
+  "time": "20:00",
+  "h": "Kifisia",
+  "a": "Kalamata",
+  "pick": "1",
+  "score": "1-0"
+ },
+ "2026-11-29-atromitos-panathinaikos": {
+  "r": 12,
+  "date": "2026-11-29",
+  "time": "17:00",
+  "h": "Atromitos",
+  "a": "Panathinaikos",
+  "pick": "2",
+  "score": "0-1"
+ },
+ "2026-11-29-ofi-levadeiakos": {
+  "r": 12,
+  "date": "2026-11-29",
+  "time": "17:30",
+  "h": "OFI Crete",
+  "a": "Levadeiakos",
+  "pick": "1",
+  "score": "1-0"
+ },
+ "2026-11-29-aris-olympiakos": {
+  "r": 12,
+  "date": "2026-11-29",
+  "time": "19:00",
+  "h": "Aris",
+  "a": "Olympiakos",
+  "pick": "2",
+  "score": "0-1"
+ },
+ "2026-11-29-aek-paok": {
+  "r": 12,
+  "date": "2026-11-29",
+  "time": "21:00",
+  "h": "AEK",
+  "a": "PAOK",
+  "pick": "1",
+  "score": "1-0"
  }
 }

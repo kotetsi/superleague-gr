@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-24",
+ "updated": "2026-11-27",
  "teams": {
   "AEK": {
    "source": "https://en.wikipedia.org/wiki/AEK_Athens_F.C.",
@@ -9187,6 +9187,14 @@
      "pos": "MF",
      "nat": "GRE",
      "name": "Emmanouil Chnaris",
+     "wiki": null,
+     "loan": false
+    },
+    {
+     "no": "",
+     "pos": "DF",
+     "nat": "",
+     "name": "Giorgos Kozyrakis<ref name=\"GrandSportKozyrakis\"></ref>",
      "wiki": null,
      "loan": false
     }
